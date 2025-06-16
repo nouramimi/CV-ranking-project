@@ -1,8 +1,7 @@
-package com.example.cvfilter.model;
+package com.example.cvfilter.dao.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
-import java.util.List;
 
 @Entity
 public class JobOffer {
@@ -20,7 +19,7 @@ public class JobOffer {
     private String department;
 
     @Enumerated(EnumType.STRING)
-    private EmploymentType employmentType; // FULL_TIME, PART_TIME, CONTRACT, etc.
+    private EmploymentType employmentType;
 
     private LocalDate postingDate;
     private LocalDate closingDate;

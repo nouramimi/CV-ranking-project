@@ -1,7 +1,9 @@
 package com.example.cvfilter.service;
 
-import com.example.cvfilter.model.JobOffer;
-import com.example.cvfilter.repository.JobOfferRepository;
+import com.example.cvfilter.dao.JobOfferDao;
+import com.example.cvfilter.dao.entity.JobOffer;
+import com.example.cvfilter.exception.InvalidJobOfferException;
+import com.example.cvfilter.service.impl.JobOfferServiceInterface;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -9,77 +11,88 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-public class JobOfferService {
+public class JobOfferService implements JobOfferServiceInterface {
 
-    private final JobOfferRepository repository;
+    private final JobOfferDao jobOfferDao;
 
-    public JobOfferService(JobOfferRepository repository) {
-        this.repository = repository;
+    public JobOfferService(JobOfferDao jobOfferDao) {
+        this.jobOfferDao = jobOfferDao;
     }
 
+    @Override
     public JobOffer create(JobOffer offer) {
         validateJobOffer(offer);
-        return repository.save(offer);
+        return jobOfferDao.save(offer);
     }
 
+    @Override
     public List<JobOffer> getAll() {
-        return repository.findAll();
+        return jobOfferDao.findAll();
     }
 
+    @Override
     public List<JobOffer> getActiveOffers() {
-        return repository.findByIsActive(true);
+        return jobOfferDao.findActiveOffers();
     }
 
+    @Override
     public Optional<JobOffer> getById(Long id) {
         if (id == null || id <= 0) {
-            return Optional.empty();
+            throw new InvalidJobOfferException("ID must be a positive number.");
         }
-        return repository.findById(id);
+
+        return jobOfferDao.findById(id);
     }
 
+    @Override
     public Optional<JobOffer> update(Long id, JobOffer updated) {
         if (id == null || id <= 0) {
-            return Optional.empty();
+            throw new InvalidJobOfferException("Invalid job offer ID.");
         }
 
-        return repository.findById(id)
+        return jobOfferDao.findById(id)
                 .map(existing -> {
                     updateJobOfferFields(existing, updated);
-                    return repository.save(existing);
+                    return jobOfferDao.save(existing);
                 });
     }
 
-    public boolean delete(Long id) {
-        if (id == null || id <= 0) {
-            return false;
-        }
 
-        if (repository.existsById(id)) {
-            repository.deleteById(id);
+    @Override
+    public boolean delete(Long id) {
+        if (id == null || id <= 0) return false;
+
+        if (jobOfferDao.existsById(id)) {
+            jobOfferDao.deleteById(id);
             return true;
         }
         return false;
     }
 
+    @Override
     public boolean deactivate(Long id) {
-        return repository.findById(id)
+        return jobOfferDao.findById(id)
                 .map(offer -> {
                     offer.setActive(false);
-                    repository.save(offer);
+                    jobOfferDao.save(offer);
                     return true;
                 })
                 .orElse(false);
     }
 
+    @Override
     public boolean exists(Long id) {
-        return id != null && id > 0 && repository.existsById(id);
+        return id != null && id > 0 && jobOfferDao.existsById(id);
     }
 
+    @Override
     public String getJobDescription(Long jobOfferId) {
         return getById(jobOfferId)
                 .map(JobOffer::getDescription)
                 .orElse(null);
     }
+
+    // --- Private helper methods (unchanged) ---
 
     private void validateJobOffer(JobOffer offer) {
         if (offer.getTitle() == null || offer.getTitle().trim().isEmpty()) {
@@ -115,7 +128,6 @@ public class JobOfferService {
             throw new IllegalArgumentException("Valid contact email is required");
         }
 
-        // Set default values
         if (offer.getIsActive() == null) {
             offer.setActive(true);
         }
@@ -125,59 +137,45 @@ public class JobOfferService {
         if (updated.getTitle() != null && !updated.getTitle().trim().isEmpty()) {
             existing.setTitle(updated.getTitle().trim());
         }
-
         if (updated.getDescription() != null && !updated.getDescription().trim().isEmpty()) {
             existing.setDescription(updated.getDescription().trim());
         }
-
         if (updated.getDetailedDescription() != null) {
             existing.setDetailedDescription(updated.getDetailedDescription());
         }
-
         if (updated.getLocation() != null && !updated.getLocation().trim().isEmpty()) {
             existing.setLocation(updated.getLocation().trim());
         }
-
         if (updated.getDepartment() != null) {
             existing.setDepartment(updated.getDepartment());
         }
-
         if (updated.getEmploymentType() != null) {
             existing.setEmploymentType(updated.getEmploymentType());
         }
-
         if (updated.getPostingDate() != null) {
             existing.setPostingDate(updated.getPostingDate());
         }
-
         if (updated.getClosingDate() != null) {
             existing.setClosingDate(updated.getClosingDate());
         }
-
         if (updated.getMinSalary() != null) {
             existing.setMinSalary(updated.getMinSalary());
         }
-
         if (updated.getMaxSalary() != null) {
             existing.setMaxSalary(updated.getMaxSalary());
         }
-
         if (updated.getSalaryCurrency() != null) {
             existing.setSalaryCurrency(updated.getSalaryCurrency());
         }
-
         if (updated.getYearsOfExperienceRequired() != null) {
             existing.setYearsOfExperienceRequired(updated.getYearsOfExperienceRequired());
         }
-
         if (updated.getContactEmail() != null && updated.getContactEmail().contains("@")) {
             existing.setContactEmail(updated.getContactEmail());
         }
-
         if (updated.getContactPhone() != null) {
             existing.setContactPhone(updated.getContactPhone());
         }
-
         if (updated.getIsActive() != null) {
             existing.setActive(updated.getIsActive());
         }

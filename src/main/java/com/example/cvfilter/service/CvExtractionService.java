@@ -1,6 +1,7 @@
 package com.example.cvfilter.service;
 
-import com.example.cvfilter.model.CvInfo;
+import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.service.impl.CvExtractionServiceInterface;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
@@ -18,9 +19,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
-public class CvExtractionService {
+public class CvExtractionService implements CvExtractionServiceInterface {
 
-    // Liste des compétences techniques communes pour améliorer la détection
     private static final String[] COMMON_SKILLS = {
             "java", "python", "javascript", "html", "css", "sql", "spring", "react",
             "angular", "node", "docker", "kubernetes", "git", "jenkins", "maven",
@@ -29,50 +29,7 @@ public class CvExtractionService {
             "junit", "selenium", "agile", "scrum", "kanban"
     };
 
-    /*public CvInfo extractCvInfo(File cvFile, Long userId) throws IOException {
-        CvInfo cvInfo = new CvInfo(userId, cvFile.getAbsolutePath());
 
-        System.out.println("Processing CV file: " + cvFile.getName());
-
-        String content = extractTextFromFile(cvFile);
-
-        if (content != null && !content.trim().isEmpty()) {
-            System.out.println("Extracted content length: " + content.length());
-            System.out.println("First 500 characters: " + content.substring(0, Math.min(500, content.length())));
-
-            // Nettoyer le contenu
-            String cleanedContent = cleanAndNormalizeText(content);
-
-            // Set description (first 500 characters of cleaned content)
-            cvInfo.setDescription(cleanedContent.length() > 500 ?
-                    cleanedContent.substring(0, 500) + "..." : cleanedContent);
-
-            // Extract information avec contenu nettoyé
-            cvInfo.setName(extractName(cleanedContent));
-            cvInfo.setEmail(extractEmail(cleanedContent));
-            cvInfo.setPhone(extractPhone(cleanedContent));
-            cvInfo.setSkills(extractSkills(cleanedContent));
-            cvInfo.setExperience(extractExperience(cleanedContent));
-            cvInfo.setEducation(extractEducation(cleanedContent));
-
-            // Debug: Print extracted fields
-            System.out.println("Extracted - Name: " + cvInfo.getName());
-            System.out.println("Extracted - Email: " + cvInfo.getEmail());
-            System.out.println("Extracted - Phone: " + cvInfo.getPhone());
-            System.out.println("Extracted - Skills: " +
-                    (cvInfo.getSkills() != null ? cvInfo.getSkills().substring(0, Math.min(100, cvInfo.getSkills().length())) + "..." : "null"));
-            System.out.println("Extracted - Experience: " +
-                    (cvInfo.getExperience() != null ? cvInfo.getExperience().substring(0, Math.min(100, cvInfo.getExperience().length())) + "..." : "null"));
-            System.out.println("Extracted - Education: " +
-                    (cvInfo.getEducation() != null ? cvInfo.getEducation().substring(0, Math.min(100, cvInfo.getEducation().length())) + "..." : "null"));
-        } else {
-            System.out.println("No content extracted from file: " + cvFile.getName());
-            System.out.println("File exists: " + cvFile.exists());
-            System.out.println("File size: " + cvFile.length() + " bytes");
-        }
-
-        return cvInfo;
-    }*/
 
     public CvInfo extractCvInfo(File cvFile, Long userId, Long jobOfferId) throws IOException {
         CvInfo cvInfo = new CvInfo(userId, jobOfferId, cvFile.getAbsolutePath());
@@ -85,7 +42,6 @@ public class CvExtractionService {
             System.out.println("Extracted content length: " + content.length());
             System.out.println("First 500 characters: " + content.substring(0, Math.min(500, content.length())));
 
-            // Nettoyer le contenu
             String cleanedContent = cleanAndNormalizeText(content);
 
             // Set description (first 500 characters of cleaned content)
@@ -100,7 +56,6 @@ public class CvExtractionService {
             cvInfo.setExperience(extractExperience(cleanedContent));
             cvInfo.setEducation(extractEducation(cleanedContent));
 
-            // Debug: Print extracted fields
             System.out.println("Extracted - Name: " + cvInfo.getName());
             System.out.println("Extracted - Email: " + cvInfo.getEmail());
             System.out.println("Extracted - Phone: " + cvInfo.getPhone());
@@ -118,9 +73,8 @@ public class CvExtractionService {
 
         return cvInfo;
     }
-    // Keep the old method for backward compatibility
     public CvInfo extractCvInfo(File cvFile, Long userId) throws IOException {
-        // Default to null job offer ID for backward compatibility
+
         return extractCvInfo(cvFile, userId, null);
     }
 
@@ -192,10 +146,8 @@ public class CvExtractionService {
 
     private String extractFromTxt(File file) throws IOException {
         try {
-            // Essayer différents encodages
             String content = Files.readString(file.toPath(), StandardCharsets.UTF_8);
             if (content.trim().isEmpty()) {
-                // Essayer avec ISO-8859-1 si UTF-8 ne fonctionne pas
                 content = Files.readString(file.toPath(), StandardCharsets.ISO_8859_1);
             }
             System.out.println("TXT extraction successful, text length: " + content.length());
@@ -209,7 +161,6 @@ public class CvExtractionService {
     private String cleanAndNormalizeText(String text) {
         if (text == null) return "";
 
-        // Remplacer les caractères spéciaux et normaliser les espaces
         return text
                 .replaceAll("\\r\\n", "\n")
                 .replaceAll("\\r", "\n")
@@ -223,15 +174,12 @@ public class CvExtractionService {
 
         String[] lines = content.split("\n");
 
-        // Méthode 1: Chercher dans les premières lignes
         for (int i = 0; i < Math.min(10, lines.length); i++) {
             String line = lines[i].trim();
             if (line.length() > 2 && line.length() < 60) {
-                // Vérifier si la ligne contient principalement des lettres
                 if (line.matches("^[A-Za-zÀ-ÿ\\s'.-]+$")) {
                     String[] words = line.split("\\s+");
                     if (words.length >= 2 && words.length <= 4) {
-                        // Éviter les en-têtes communs
                         String lowerLine = line.toLowerCase();
                         if (!lowerLine.contains("cv") && !lowerLine.contains("curriculum") &&
                                 !lowerLine.contains("resume") && !lowerLine.contains("téléphone") &&
@@ -243,7 +191,6 @@ public class CvExtractionService {
             }
         }
 
-        // Méthode 2: Chercher des patterns spécifiques
         Pattern[] namePatterns = {
                 Pattern.compile("(?:nom|name|prénom|prenom)\\s*:?\\s*([A-Za-zÀ-ÿ\\s'.-]+)", Pattern.CASE_INSENSITIVE),
                 Pattern.compile("^([A-Za-zÀ-ÿ]+\\s+[A-Za-zÀ-ÿ]+)", Pattern.MULTILINE)
@@ -265,7 +212,6 @@ public class CvExtractionService {
     private String extractEmail(String content) {
         if (content == null) return null;
 
-        // Pattern email amélioré
         Pattern emailPattern = Pattern.compile(
                 "\\b[A-Za-z0-9]([A-Za-z0-9._%-]*[A-Za-z0-9])?@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\\.[A-Za-z]{2,}\\b"
         );
@@ -280,7 +226,6 @@ public class CvExtractionService {
     private String extractPhone(String content) {
         if (content == null) return null;
 
-        // Patterns pour numéros français et internationaux
         Pattern[] phonePatterns = {
                 Pattern.compile("(?:\\+33|0)[1-9](?:[\\s.-]?\\d{2}){4}"), // Format français standard
                 Pattern.compile("\\+?\\d{1,4}[\\s.-]?\\(?\\d{1,4}\\)?[\\s.-]?\\d{1,4}[\\s.-]?\\d{1,4}[\\s.-]?\\d{1,4}"), // Format international
@@ -292,7 +237,6 @@ public class CvExtractionService {
             Matcher matcher = pattern.matcher(content);
             if (matcher.find()) {
                 String phone = matcher.group().trim();
-                // Valider que c'est bien un numéro de téléphone (au moins 8 chiffres)
                 String digitsOnly = phone.replaceAll("\\D", "");
                 if (digitsOnly.length() >= 8 && digitsOnly.length() <= 15) {
                     return phone;
@@ -308,7 +252,6 @@ public class CvExtractionService {
         String lowerContent = content.toLowerCase();
         StringBuilder skills = new StringBuilder();
 
-        // Chercher les sections compétences
         String[] skillsKeywords = {
                 "compétences", "compétence", "skills", "savoir-faire", "aptitudes",
                 "technologies", "technical skills", "outils", "logiciels", "connaissances"
@@ -317,7 +260,6 @@ public class CvExtractionService {
         for (String keyword : skillsKeywords) {
             int index = lowerContent.indexOf(keyword);
             if (index != -1) {
-                // Extraire le texte après le mot-clé
                 int startIndex = index;
                 int endIndex = findSectionEnd(lowerContent, index + keyword.length(),
                         new String[]{"expérience", "experience", "formation", "education", "diplôme", "langues", "centres d'intérêt", "loisirs"});
@@ -329,7 +271,6 @@ public class CvExtractionService {
             }
         }
 
-        // Chercher aussi les compétences techniques courantes dans tout le texte
         List<String> foundSkills = new ArrayList<>();
         for (String skill : COMMON_SKILLS) {
             if (lowerContent.contains(skill.toLowerCase())) {

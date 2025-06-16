@@ -1,8 +1,13 @@
 package com.example.cvfilter.service;
 
-import com.example.cvfilter.model.CvInfo;
-import com.example.cvfilter.model.CvRanking;
-import com.example.cvfilter.model.JobOffer;
+import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.dao.entity.CvRanking;
+import com.example.cvfilter.dao.entity.JobOffer;
+import com.example.cvfilter.exception.CvUploadException;
+import com.example.cvfilter.exception.InvalidJobOfferException;
+import com.example.cvfilter.exception.JobOfferNotFoundException;
+import com.example.cvfilter.service.impl.CvRankingServiceInterface;
+import com.example.cvfilter.service.impl.JobOfferServiceInterface;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -15,12 +20,12 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-public class CvRankingService {
+public class CvRankingService implements CvRankingServiceInterface {
 
     @Value("${cv.extracted.info.file:cv_extracted_info.csv}")
     private String extractedInfoFile;
 
-    private final JobOfferService jobOfferService;
+    private final JobOfferServiceInterface jobOfferService;
 
     private static final Set<String> STOPWORDS = Set.of(
             "le", "de", "et", "à", "un", "il", "être", "en", "avoir", "que", "pour",
@@ -34,29 +39,26 @@ public class CvRankingService {
     }
 
     public List<CvRanking> getTopCvsForJob(Long jobOfferId, int topN) {
+        JobOffer jobOffer = jobOfferService.getById(jobOfferId)
+                .orElseThrow(() -> new JobOfferNotFoundException("Job offer not found: " + jobOfferId));
+
+        String jobDescription = jobOffer.getDescription();
+        if (jobDescription == null || jobDescription.trim().isEmpty()) {
+            throw new InvalidJobOfferException("Job offer description is empty");
+        }
+
+        List<CvInfo> cvs;
         try {
-            Optional<JobOffer> jobOfferOpt = jobOfferService.getById(jobOfferId);
-            if (jobOfferOpt.isEmpty()) {
-                throw new IllegalArgumentException("Job offer not found: " + jobOfferId);
-            }
+            cvs = loadCvsForJobOffer(jobOfferId); // your method to load CVs
+        } catch (IOException e) {
+            throw new CvUploadException("Failed to load CVs for job offer " + jobOfferId, e);
+        }
 
-            String jobDescription = jobOfferOpt.get().getDescription();
-            if (jobDescription == null || jobDescription.trim().isEmpty()) {
-                throw new IllegalArgumentException("Job offer has no description");
-            }
-
-            List<CvInfo> cvs = loadCvsForJobOffer(jobOfferId);
-            if (cvs.isEmpty()) {
-                return Collections.emptyList();
-            }
-
-            return rankCvs(jobDescription, cvs, Math.min(topN, cvs.size()));
-
-        } catch (Exception e) {
-            System.err.println("Error ranking CVs for job " + jobOfferId + ": " + e.getMessage());
-            e.printStackTrace();
+        if (cvs.isEmpty()) {
             return Collections.emptyList();
         }
+
+        return rankCvs(jobDescription, cvs, Math.min(topN, cvs.size())); // your ranking method
     }
 
     public List<CvRanking> getBestCvsForJob(Long jobOfferId) {
@@ -73,7 +75,7 @@ public class CvRankingService {
             while ((line = reader.readLine()) != null) {
                 if (isFirstLine) {
                     isFirstLine = false;
-                    continue; // Skip header
+                    continue;
                 }
 
                 CvInfo cvInfo = parseCsvLine(line);

@@ -1,8 +1,8 @@
 package com.example.cvfilter.util;
 
-import com.example.cvfilter.model.CvInfo;
-import com.example.cvfilter.model.CvRanking;
-import com.example.cvfilter.model.JobOffer;
+import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.dao.entity.CvRanking;
+import com.example.cvfilter.dao.entity.JobOffer;
 import com.example.cvfilter.service.CvRankingService;
 import com.example.cvfilter.service.JobOfferService;
 import org.springframework.stereotype.Component;

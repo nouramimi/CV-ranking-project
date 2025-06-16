@@ -1,4 +1,4 @@
-package com.example.cvfilter.model;
+package com.example.cvfilter.dao.entity;
 
 import java.time.LocalDateTime;
 
@@ -60,6 +60,7 @@ public class CvRanking {
                 ", jobOfferId=" + (cvInfo != null ? cvInfo.getJobOfferId() : null) +
                 ", similarityScore=" + similarityScore +
                 ", rank=" + rank +
+                ", rankedAt=" + rankedAt +
                 '}';
     }
 }

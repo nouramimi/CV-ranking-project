@@ -1,6 +1,7 @@
 package com.example.cvfilter.service;
 
-import com.example.cvfilter.model.CvInfo;
+import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.service.impl.CvExtractionServiceInterface;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,7 +26,7 @@ public class CvProcessingService {
     @Value("${cv.extracted.info.file:cv_extracted_info.csv}")
     private String extractedInfoFile;
 
-    private final CvExtractionService cvExtractionService;
+    private final CvExtractionServiceInterface cvExtractionService;
 
     private Set<String> processedFiles = new HashSet<>();
     private Set<String> existingCvRecords = new HashSet<>();

@@ -1,4 +1,4 @@
-package com.example.cvfilter.model;
+package com.example.cvfilter.dao.entity;
 
 import java.time.LocalDateTime;
 

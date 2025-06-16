@@ -1,22 +1,20 @@
-package com.example.cvfilter.model;
+package com.example.cvfilter.dto;
 
-import jakarta.persistence.*;
-import lombok.*;
+import com.example.cvfilter.dao.entity.Role;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 
-@Entity
-@Data
-@Table(name = "app_user")
-@NoArgsConstructor
-@AllArgsConstructor
-public class User {
-
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
+public class RegisterRequest {
+    @NotBlank
     private String username;
+
+    @NotBlank
+    @Email
+    private String email;
+
+    @NotBlank
     private String password;
 
-    @Enumerated(EnumType.STRING)
     private Role role;
 
     public String getUsername() {
@@ -25,6 +23,14 @@ public class User {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getPassword() {
@@ -41,9 +47,5 @@ public class User {
 
     public void setRole(Role role) {
         this.role = role;
-    }
-
-    public Long getId() {
-        return id;
     }
 }

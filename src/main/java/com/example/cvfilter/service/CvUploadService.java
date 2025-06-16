@@ -1,8 +1,12 @@
 package com.example.cvfilter.service;
 
-import com.example.cvfilter.model.User;
-import com.example.cvfilter.repository.JobOfferRepository;
-import com.example.cvfilter.repository.UserRepository;
+import com.example.cvfilter.dao.UserDao;
+import com.example.cvfilter.dao.JobOfferDao;
+import com.example.cvfilter.dao.entity.User;
+import com.example.cvfilter.exception.CvUploadException;
+import com.example.cvfilter.exception.JobOfferNotFoundException;
+import com.example.cvfilter.exception.UserNotFoundException;
+import com.example.cvfilter.service.impl.CvUploadServiceInterface;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -10,14 +14,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.*;
-import java.time.LocalDateTime;
+        import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 @Service
-public class CvUploadService {
+public class CvUploadService implements CvUploadServiceInterface {
 
-    private final JobOfferRepository jobOfferRepository;
-    private final UserRepository userRepository;
+    private final JobOfferDao jobOfferDao;
+    private final UserDao userDao;
 
     @Value("${cv.storage.path:data}")
     private String storagePath;
@@ -25,14 +29,14 @@ public class CvUploadService {
     @Value("${cv.log.file:cv_uploads.csv}")
     private String csvLogFile;
 
-    public CvUploadService(JobOfferRepository jobOfferRepository, UserRepository userRepository) {
-        this.jobOfferRepository = jobOfferRepository;
-        this.userRepository = userRepository;
+    public CvUploadService(JobOfferDao jobOfferDao, UserDao userDao) {
+        this.jobOfferDao = jobOfferDao;
+        this.userDao = userDao;
     }
 
-    // Keep your original method for backward compatibility
+    @Override
     public String uploadCv(Long jobId, MultipartFile file) throws IOException {
-        if (!jobOfferRepository.existsById(jobId)) {
+        if (!jobOfferDao.existsById(jobId)) {
             throw new IllegalArgumentException("Job offer not found");
         }
 
@@ -45,92 +49,55 @@ public class CvUploadService {
         return filePath.toString();
     }
 
-    public String uploadCv(Long jobId, MultipartFile file, String username) throws IOException {
-        if (!jobOfferRepository.existsById(jobId)) {
-            throw new IllegalArgumentException("Job offer not found");
+    @Override
+    public String uploadCv(Long jobId, MultipartFile file, String username) {
+        if (!jobOfferDao.existsById(jobId)) {
+            throw new JobOfferNotFoundException("Job offer not found with ID: " + jobId);
         }
 
-        User user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User user = userDao.findByUsername(username)
+                .orElseThrow(() -> new UserNotFoundException("User not found: " + username));
 
-        Path jobDir = Paths.get(storagePath, String.valueOf(jobId));
-        Files.createDirectories(jobDir);
+        try {
+            Path jobDir = Paths.get(storagePath, String.valueOf(jobId));
+            Files.createDirectories(jobDir);
 
-        String originalFilename = file.getOriginalFilename();
-        String extension = originalFilename != null && originalFilename.contains(".")
-                ? originalFilename.substring(originalFilename.lastIndexOf("."))
-                : "";
-        String baseFilename = originalFilename != null && originalFilename.contains(".")
-                ? originalFilename.substring(0, originalFilename.lastIndexOf("."))
-                : originalFilename;
+            String originalFilename = file.getOriginalFilename();
+            String extension = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(originalFilename.lastIndexOf("."))
+                    : "";
+            String baseFilename = originalFilename != null && originalFilename.contains(".")
+                    ? originalFilename.substring(0, originalFilename.lastIndexOf("."))
+                    : originalFilename;
 
-        String uniqueFilename = baseFilename + "_user_" + user.getId() + "_" +
-                System.currentTimeMillis() + extension;
+            String uniqueFilename = baseFilename + "_user_" + user.getId() + "_" +
+                    System.currentTimeMillis() + extension;
 
-        Path filePath = jobDir.resolve(uniqueFilename);
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
+            Path filePath = jobDir.resolve(uniqueFilename);
+            Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-        // Log to CSV
-        logCvUpload(user.getId(), filePath.toString());
+            logCvUpload(user.getId(), filePath.toString());
 
-        return filePath.toString();
+            return filePath.toString();
+        } catch (IOException e) {
+            throw new CvUploadException("Error while uploading CV", e);
+        }
     }
 
-    private void logCvUpload(Long userId, String cvPath) throws IOException {
 
+    private void logCvUpload(Long userId, String cvPath) throws IOException {
         Path csvPath = Paths.get(csvLogFile);
         boolean fileExists = Files.exists(csvPath);
 
         try (FileWriter writer = new FileWriter(csvLogFile, true)) {
-
             if (!fileExists) {
                 writer.append("user_id,cv_path,upload_timestamp\n");
             }
 
             String timestamp = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-
             String escapedPath = cvPath.replace("\"", "\"\"");
+
             writer.append(String.format("%d,\"%s\",%s\n", userId, escapedPath, timestamp));
         }
     }
 }
-
-
-
-/*package com.example.cvfilter.service;
-
-import com.example.cvfilter.repository.JobOfferRepository;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
-import java.nio.file.*;
-
-@Service
-public class CvUploadService {
-
-    private final JobOfferRepository jobOfferRepository;
-
-    @Value("${cv.storage.path:data}")
-    private String storagePath;
-
-    public CvUploadService(JobOfferRepository jobOfferRepository) {
-        this.jobOfferRepository = jobOfferRepository;
-    }
-
-    public String uploadCv(Long jobId, MultipartFile file) throws IOException {
-        if (!jobOfferRepository.existsById(jobId)) {
-            throw new IllegalArgumentException("Job offer not found");
-        }
-
-        Path jobDir = Paths.get(storagePath, String.valueOf(jobId));
-        Files.createDirectories(jobDir);
-
-        Path filePath = jobDir.resolve(file.getOriginalFilename());
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-
-        return filePath.toString();
-    }
-}*/
-
