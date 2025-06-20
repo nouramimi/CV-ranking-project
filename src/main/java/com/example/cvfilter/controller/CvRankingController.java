@@ -1,106 +1,95 @@
 package com.example.cvfilter.controller;
 
-import com.example.cvfilter.model.CvRanking;
+import com.example.cvfilter.config.JwtUtils;
+import com.example.cvfilter.dao.entity.CvRanking;
 import com.example.cvfilter.service.CvRankingService;
+import com.example.cvfilter.service.EmailService;
+import com.example.cvfilter.service.impl.CvRankingServiceInterface;
+import com.example.cvfilter.service.impl.EmailServiceInterface;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/cv-ranking")
 public class CvRankingController {
 
-    private final CvRankingService cvRankingService;
+    private final CvRankingServiceInterface cvRankingService;
+    private final EmailServiceInterface emailService;
+    private final JwtUtils jwtUtils;
 
-    public CvRankingController(CvRankingService cvRankingService) {
+    public CvRankingController(CvRankingServiceInterface cvRankingService, EmailServiceInterface emailService, JwtUtils jwtUtils) {
         this.cvRankingService = cvRankingService;
+        this.emailService = emailService;
+        this.jwtUtils = jwtUtils;
     }
 
-
-    @GetMapping("/job/{jobOfferId}/best")
-    public ResponseEntity<List<CvRanking>> getBestCvsForJob(@PathVariable Long jobOfferId) {
-        try {
-            List<CvRanking> rankings = cvRankingService.getBestCvsForJob(jobOfferId);
-
-            if (rankings.isEmpty()) {
-                return ResponseEntity.noContent().build();
-            }
-
-            for (int i = 0; i < rankings.size(); i++) {
-                rankings.get(i).setRank(i + 1);
-            }
-
-            return ResponseEntity.ok(rankings);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+    // Contrôleur simplifié - logique dans le service
+    @GetMapping("/best/{jobOfferId}")
+    public ResponseEntity<List<CvRanking>> getBestCvsForJob(@PathVariable Long jobOfferId,
+                                                            HttpServletRequest request) {
+        String username = extractUsernameFromRequest(request);
+        List<CvRanking> rankings = cvRankingService.getBestCvsForJob(jobOfferId, username);
+        return ResponseEntity.ok(rankings);
     }
 
     @GetMapping("/job/{jobOfferId}/top/{topN}")
     public ResponseEntity<List<CvRanking>> getTopCvsForJob(
             @PathVariable Long jobOfferId,
-            @PathVariable int topN) {
+            @PathVariable int topN,
+            HttpServletRequest request) {
 
-        if (topN <= 0 || topN > 20) {
-            return ResponseEntity.badRequest().build();
-        }
+        String username = extractUsernameFromRequest(request);
+        List<CvRanking> rankings = cvRankingService.getTopCvsForJob(jobOfferId, topN, username);
+        return ResponseEntity.ok(rankings);
+    }
 
-        try {
-            List<CvRanking> rankings = cvRankingService.getTopCvsForJob(jobOfferId, topN);
+    @PostMapping("/job/{jobOfferId}/best/notify")
+    public ResponseEntity<String> getBestCvsAndNotify(@PathVariable Long jobOfferId,
+                                                      HttpServletRequest request) {
+        String username = extractUsernameFromRequest(request);
+        int notifiedCount = cvRankingService.getBestCvsAndNotify(jobOfferId, username);
+        return ResponseEntity.ok("Les " + notifiedCount + " meilleurs candidats ont été notifiés par email.");
+    }
 
-            if (rankings.isEmpty()) {
-                return ResponseEntity.noContent().build();
-            }
+    @PostMapping("/job/{jobOfferId}/top/{topN}/notify")
+    public ResponseEntity<String> getTopCvsAndNotify(
+            @PathVariable Long jobOfferId,
+            @PathVariable int topN,
+            HttpServletRequest request) {
 
-            // Set ranks
-            for (int i = 0; i < rankings.size(); i++) {
-                rankings.get(i).setRank(i + 1);
-            }
-
-            return ResponseEntity.ok(rankings);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+        String username = extractUsernameFromRequest(request);
+        int notifiedCount = cvRankingService.getTopCvsAndNotify(jobOfferId, topN, username);
+        return ResponseEntity.ok("Les " + notifiedCount + " meilleurs candidats ont été notifiés par email.");
     }
 
     @GetMapping("/job/{jobOfferId}/details")
-    public ResponseEntity<CvRankingDetails> getRankingDetails(@PathVariable Long jobOfferId) {
-        try {
-            List<CvRanking> rankings = cvRankingService.getBestCvsForJob(jobOfferId);
-
-            if (rankings.isEmpty()) {
-                return ResponseEntity.noContent().build();
-            }
-
-            CvRankingDetails details = new CvRankingDetails();
-            details.setJobOfferId(jobOfferId);
-            details.setTotalCvs(rankings.size());
-            details.setRankings(rankings);
-
-            // Calculate statistics
-            double maxScore = rankings.stream().mapToDouble(CvRanking::getSimilarityScore).max().orElse(0.0);
-            double minScore = rankings.stream().mapToDouble(CvRanking::getSimilarityScore).min().orElse(0.0);
-            double avgScore = rankings.stream().mapToDouble(CvRanking::getSimilarityScore).average().orElse(0.0);
-
-            details.setMaxSimilarityScore(maxScore);
-            details.setMinSimilarityScore(minScore);
-            details.setAverageSimilarityScore(avgScore);
-
-            return ResponseEntity.ok(details);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
-        }
+    public ResponseEntity<CvRanking> getRankingDetails(@PathVariable Long jobOfferId,
+                                                              HttpServletRequest request) {
+        String username = extractUsernameFromRequest(request);
+        CvRanking details = cvRankingService.getRankingDetails(jobOfferId, username);
+        return ResponseEntity.ok(details);
     }
+    private String extractUsernameFromRequest(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            throw new IllegalArgumentException("Invalid authorization header");
+        }
+
+        String token = authHeader.substring(7);
+        String username = jwtUtils.extractUsername(token);
+
+        if (username == null) {
+            throw new IllegalArgumentException("Unable to extract username from token");
+        }
+
+        return username;
+    }
+
 
     public static class CvRankingDetails {
         private Long jobOfferId;

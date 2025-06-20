@@ -1,6 +1,7 @@
 package com.example.cvfilter.service;
 
-import com.example.cvfilter.model.CvInfo;
+import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.service.impl.CvExtractionServiceInterface;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -25,7 +26,7 @@ public class CvProcessingService {
     @Value("${cv.extracted.info.file:cv_extracted_info.csv}")
     private String extractedInfoFile;
 
-    private final CvExtractionService cvExtractionService;
+    private final CvExtractionServiceInterface cvExtractionService;
 
     private Set<String> processedFiles = new HashSet<>();
     private Set<String> existingCvRecords = new HashSet<>();
@@ -154,10 +155,11 @@ public class CvProcessingService {
                             }
 
                             Long userId = extractUserIdFromFilename(cvFile.getName());
+                            Long companyId = extractCompanyIdFromFilename(cvFile.getName());
                             if (userId != null) {
                                 System.out.println("  Processing CV: " + cvFile.getName() + " for user: " + userId + " (Job: " + jobOfferId + ")");
 
-                                CvInfo cvInfo = cvExtractionService.extractCvInfo(cvFile, userId, jobOfferId);
+                                CvInfo cvInfo = cvExtractionService.extractCvInfo(cvFile, userId, companyId, jobOfferId);
 
                                 if (validateExtractedInfo(cvInfo)) {
                                     extractedInfos.add(cvInfo);
@@ -196,6 +198,35 @@ public class CvProcessingService {
             e.printStackTrace();
         }
     }
+    private Long extractCompanyIdFromFilename(String filename) {
+        // Multiple patterns to try for extracting company ID
+        Pattern[] patterns = {
+                Pattern.compile("_company_(\\d+)_", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("_comp(\\d+)_", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("company(\\d+)", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("comp(\\d+)", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("_co_(\\d+)_", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("_(\\d+)_company_", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("_(\\d+)_comp_", Pattern.CASE_INSENSITIVE),
+                Pattern.compile("_(\\d+)_")  // Fallback - just look for numbers between underscores
+        };
+
+        for (Pattern pattern : patterns) {
+            Matcher matcher = pattern.matcher(filename);
+            if (matcher.find()) {
+                try {
+                    return Long.parseLong(matcher.group(1));
+                } catch (NumberFormatException e) {
+                    // Continue to next pattern if parsing fails
+                    continue;
+                }
+            }
+        }
+
+        System.err.println("Could not extract company ID from filename: " + filename);
+        return null;
+    }
+
     private Long extractJobIdFromDirectoryName(String directoryName) {
         // Pattern pour extraire l'ID du job depuis le nom du répertoire
         // Supposons que le répertoire soit nommé "job_123" ou "123" ou "job-123"
