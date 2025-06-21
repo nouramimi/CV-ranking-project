@@ -29,97 +29,49 @@ public class CvExtractionService implements CvExtractionServiceInterface {
             "junit", "selenium", "agile", "scrum", "kanban"
     };
 
-
-
     public CvInfo extractCvInfo(File cvFile, Long userId, Long companyId, Long jobOfferId) throws IOException {
         CvInfo cvInfo = new CvInfo(userId, jobOfferId, companyId, cvFile.getAbsolutePath());
-
-        System.out.println("Processing CV file: " + cvFile.getName() + " for Job ID: " + jobOfferId);
-
         String content = extractTextFromFile(cvFile);
 
         if (content != null && !content.trim().isEmpty()) {
-            System.out.println("Extracted content length: " + content.length());
-            System.out.println("First 500 characters: " + content.substring(0, Math.min(500, content.length())));
-
             String cleanedContent = cleanAndNormalizeText(content);
-
-            cvInfo.setDescription(cleanedContent.length() > 500 ?
-                    cleanedContent.substring(0, 500) + "..." : cleanedContent);
-
+            cvInfo.setDescription(cleanedContent.length() > 500 ? cleanedContent.substring(0, 500) + "..." : cleanedContent);
             cvInfo.setName(extractName(cleanedContent));
             cvInfo.setEmail(extractEmail(cleanedContent));
             cvInfo.setPhone(extractPhone(cleanedContent));
             cvInfo.setSkills(extractSkills(cleanedContent));
             cvInfo.setExperience(extractExperience(cleanedContent));
             cvInfo.setEducation(extractEducation(cleanedContent));
-
-            System.out.println("Extracted - Name: " + cvInfo.getName());
-            System.out.println("Extracted - Email: " + cvInfo.getEmail());
-            System.out.println("Extracted - Phone: " + cvInfo.getPhone());
-            System.out.println("Extracted - Skills: " +
-                    (cvInfo.getSkills() != null ? cvInfo.getSkills().substring(0, Math.min(100, cvInfo.getSkills().length())) + "..." : "null"));
-            System.out.println("Extracted - Experience: " +
-                    (cvInfo.getExperience() != null ? cvInfo.getExperience().substring(0, Math.min(100, cvInfo.getExperience().length())) + "..." : "null"));
-            System.out.println("Extracted - Education: " +
-                    (cvInfo.getEducation() != null ? cvInfo.getEducation().substring(0, Math.min(100, cvInfo.getEducation().length())) + "..." : "null"));
-        } else {
-            System.out.println("No content extracted from file: " + cvFile.getName());
-            System.out.println("File exists: " + cvFile.exists());
-            System.out.println("File size: " + cvFile.length() + " bytes");
+            cvInfo.setYearsOfExperience(extractYearsOfExperience(cleanedContent));
         }
 
         return cvInfo;
     }
-    public CvInfo extractCvInfo(File cvFile, Long userId) throws IOException {
 
+    public CvInfo extractCvInfo(File cvFile, Long userId) throws IOException {
         return extractCvInfo(cvFile, userId, null, null);
     }
 
-
     private String extractTextFromFile(File file) throws IOException {
         String fileName = file.getName().toLowerCase();
-
-        try {
-            if (fileName.endsWith(".pdf")) {
-                return extractFromPdf(file);
-            } else if (fileName.endsWith(".docx")) {
-                return extractFromDocx(file);
-            } else if (fileName.endsWith(".txt")) {
-                return extractFromTxt(file);
-            }
-        } catch (Exception e) {
-            System.err.println("Error extracting text from file: " + file.getName() + " - " + e.getMessage());
-            e.printStackTrace();
+        if (fileName.endsWith(".pdf")) {
+            return extractFromPdf(file);
+        } else if (fileName.endsWith(".docx")) {
+            return extractFromDocx(file);
+        } else if (fileName.endsWith(".txt")) {
+            return extractFromTxt(file);
         }
-
         return null;
     }
 
     private String extractFromPdf(File file) throws IOException {
         try (PDDocument document = PDDocument.load(file)) {
-            if (document.isEncrypted()) {
-                System.err.println("PDF is encrypted: " + file.getName());
-                return null;
-            }
-
+            if (document.isEncrypted()) return null;
             PDFTextStripper pdfStripper = new PDFTextStripper();
             pdfStripper.setSortByPosition(true);
             pdfStripper.setStartPage(1);
-            pdfStripper.setEndPage(Math.min(3, document.getNumberOfPages())); // Limiter aux 3 premières pages
-
-            String text = pdfStripper.getText(document);
-            System.out.println("PDF extraction successful, text length: " + text.length());
-
-            if (text.trim().isEmpty()) {
-                System.err.println("PDF text extraction returned empty content for: " + file.getName());
-            }
-
-            return text;
-        } catch (Exception e) {
-            System.err.println("Error extracting PDF: " + e.getMessage());
-            e.printStackTrace();
-            return null;
+            pdfStripper.setEndPage(Math.min(3, document.getNumberOfPages()));
+            return pdfStripper.getText(document);
         }
     }
 
@@ -132,13 +84,7 @@ public class CvExtractionService implements CvExtractionServiceInterface {
                     content.append(text).append("\n");
                 }
             }
-            String result = content.toString();
-            System.out.println("DOCX extraction successful, text length: " + result.length());
-            return result;
-        } catch (Exception e) {
-            System.err.println("Error extracting DOCX: " + e.getMessage());
-            e.printStackTrace();
-            return null;
+            return content.toString();
         }
     }
 
@@ -148,28 +94,23 @@ public class CvExtractionService implements CvExtractionServiceInterface {
             if (content.trim().isEmpty()) {
                 content = Files.readString(file.toPath(), StandardCharsets.ISO_8859_1);
             }
-            System.out.println("TXT extraction successful, text length: " + content.length());
             return content;
         } catch (Exception e) {
-            System.err.println("Error extracting TXT: " + e.getMessage());
             return null;
         }
     }
 
     private String cleanAndNormalizeText(String text) {
         if (text == null) return "";
-
-        return text
-                .replaceAll("\\r\\n", "\n")
+        return text.replaceAll("\\r\\n", "\n")
                 .replaceAll("\\r", "\n")
                 .replaceAll("\\s+", " ")
-                .replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", "") // Supprimer les caractères de contrôle
+                .replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", "")
                 .trim();
     }
 
     private String extractName(String content) {
         if (content == null || content.trim().isEmpty()) return null;
-
         String[] lines = content.split("\n");
 
         for (int i = 0; i < Math.min(10, lines.length); i++) {
@@ -209,26 +150,18 @@ public class CvExtractionService implements CvExtractionServiceInterface {
 
     private String extractEmail(String content) {
         if (content == null) return null;
-
-        Pattern emailPattern = Pattern.compile(
-                "\\b[A-Za-z0-9]([A-Za-z0-9._%-]*[A-Za-z0-9])?@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\\.[A-Za-z]{2,}\\b"
-        );
-
+        Pattern emailPattern = Pattern.compile("\\b[A-Za-z0-9]([A-Za-z0-9._%-]*[A-Za-z0-9])?@[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?\\.[A-Za-z]{2,}\\b");
         Matcher matcher = emailPattern.matcher(content);
-        if (matcher.find()) {
-            return matcher.group().toLowerCase();
-        }
-        return null;
+        return matcher.find() ? matcher.group().toLowerCase() : null;
     }
 
     private String extractPhone(String content) {
         if (content == null) return null;
-
         Pattern[] phonePatterns = {
-                Pattern.compile("(?:\\+33|0)[1-9](?:[\\s.-]?\\d{2}){4}"), // Format français standard
-                Pattern.compile("\\+?\\d{1,4}[\\s.-]?\\(?\\d{1,4}\\)?[\\s.-]?\\d{1,4}[\\s.-]?\\d{1,4}[\\s.-]?\\d{1,4}"), // Format international
-                Pattern.compile("\\b\\d{10}\\b"), // 10 chiffres consécutifs
-                Pattern.compile("\\b\\d{2}[\\s.-]\\d{2}[\\s.-]\\d{2}[\\s.-]\\d{2}[\\s.-]\\d{2}\\b") // Format avec séparateurs
+                Pattern.compile("(?:\\+33|0)[1-9](?:[\\s.-]?\\d{2}){4}"),
+                Pattern.compile("\\+?\\d{1,4}[\\s.-]?\\(?\\d{1,4}\\)?[\\s.-]?\\d{1,4}[\\s.-]?\\d{1,4}[\\s.-]?\\d{1,4}"),
+                Pattern.compile("\\b\\d{10}\\b"),
+                Pattern.compile("\\b\\d{2}[\\s.-]\\d{2}[\\s.-]\\d{2}[\\s.-]\\d{2}[\\s.-]\\d{2}\\b")
         };
 
         for (Pattern pattern : phonePatterns) {
@@ -246,7 +179,6 @@ public class CvExtractionService implements CvExtractionServiceInterface {
 
     private String extractSkills(String content) {
         if (content == null) return null;
-
         String lowerContent = content.toLowerCase();
         StringBuilder skills = new StringBuilder();
 
@@ -261,7 +193,6 @@ public class CvExtractionService implements CvExtractionServiceInterface {
                 int startIndex = index;
                 int endIndex = findSectionEnd(lowerContent, index + keyword.length(),
                         new String[]{"expérience", "experience", "formation", "education", "diplôme", "langues", "centres d'intérêt", "loisirs"});
-
                 if (endIndex > startIndex) {
                     String skillsSection = content.substring(startIndex, endIndex);
                     skills.append(cleanText(skillsSection)).append(" ");
@@ -286,7 +217,6 @@ public class CvExtractionService implements CvExtractionServiceInterface {
 
     private String extractExperience(String content) {
         if (content == null) return null;
-
         String lowerContent = content.toLowerCase();
         String[] expKeywords = {
                 "expérience", "expériences professionnelles", "experience", "work experience",
@@ -299,7 +229,6 @@ public class CvExtractionService implements CvExtractionServiceInterface {
                 int startIndex = index;
                 int endIndex = findSectionEnd(lowerContent, index + keyword.length(),
                         new String[]{"formation", "education", "diplôme", "compétences", "langues", "centres d'intérêt"});
-
                 if (endIndex > startIndex) {
                     String expSection = content.substring(startIndex, endIndex);
                     return cleanText(expSection);
@@ -311,7 +240,6 @@ public class CvExtractionService implements CvExtractionServiceInterface {
 
     private String extractEducation(String content) {
         if (content == null) return null;
-
         String lowerContent = content.toLowerCase();
         String[] eduKeywords = {
                 "formation", "formations", "education", "diplômes", "diplôme", "études",
@@ -325,7 +253,6 @@ public class CvExtractionService implements CvExtractionServiceInterface {
                 int startIndex = index;
                 int endIndex = findSectionEnd(lowerContent, index + keyword.length(),
                         new String[]{"expérience", "experience", "compétences", "langues", "centres d'intérêt", "loisirs"});
-
                 if (endIndex > startIndex) {
                     String eduSection = content.substring(startIndex, endIndex);
                     return cleanText(eduSection);
@@ -335,33 +262,83 @@ public class CvExtractionService implements CvExtractionServiceInterface {
         return null;
     }
 
-    private int findSectionEnd(String lowerContent, int startPos, String[] endKeywords) {
-        int endIndex = lowerContent.length();
+    private String extractYearsOfExperience(String content) {
+        if (content == null) return null;
+        Pattern directPattern = Pattern.compile("(\\d+)\\s*(?:years?|ans?|yrs?|\\+?)\\s*(?:of\\s*)?(?:experience|expérience|exp|xp)", Pattern.CASE_INSENSITIVE);
+        Pattern dateRangePattern = Pattern.compile("(?:20\\d{2}|\\d{2})[/\\-–—](?:20\\d{2}|\\d{2}|present|now|aujourd'hui|actuel)", Pattern.CASE_INSENSITIVE);
+        Pattern phrasePattern = Pattern.compile("(?:over|more than|plus de|environ)\\s*(\\d+)\\s*years", Pattern.CASE_INSENSITIVE);
 
-        for (String endKeyword : endKeywords) {
-            int endPos = lowerContent.indexOf(endKeyword, startPos);
-            if (endPos != -1 && endPos < endIndex) {
-                endIndex = endPos;
+        Matcher directMatcher = directPattern.matcher(content);
+        if (directMatcher.find()) return directMatcher.group(1) + " years";
+
+        Matcher phraseMatcher = phrasePattern.matcher(content);
+        if (phraseMatcher.find()) return phraseMatcher.group(1) + "+ years";
+
+        Matcher dateMatcher = dateRangePattern.matcher(content);
+        List<String> dateRanges = new ArrayList<>();
+        while (dateMatcher.find()) dateRanges.add(dateMatcher.group());
+
+        if (!dateRanges.isEmpty()) {
+            try {
+                int totalYears = calculateTotalYearsFromRanges(dateRanges);
+                return totalYears + " years";
+            } catch (Exception e) {
+                System.err.println("Error calculating years from date ranges: " + e.getMessage());
             }
         }
 
-        // Limiter à 800 caractères maximum par section
+        return null;
+    }
+
+    private int calculateTotalYearsFromRanges(List<String> dateRanges) {
+        int totalMonths = 0;
+        for (String range : dateRanges) {
+            String[] parts = range.split("[/\\-–—]");
+            if (parts.length == 2) {
+                try {
+                    int startYear = parseYear(parts[0].trim());
+                    int endYear = parseYear(parts[1].trim());
+                    totalMonths += (endYear - startYear) * 12;
+                } catch (Exception e) {
+                    System.err.println("Error parsing date range: " + range);
+                }
+            }
+        }
+        return (int) Math.ceil(totalMonths / 12.0);
+    }
+
+    private int parseYear(String yearStr) {
+        if (yearStr.equalsIgnoreCase("present") ||
+                yearStr.equalsIgnoreCase("now") ||
+                yearStr.equalsIgnoreCase("aujourd'hui") ||
+                yearStr.equalsIgnoreCase("actuel")) {
+            return java.time.Year.now().getValue();
+        }
+        if (yearStr.length() == 2) {
+            int year = Integer.parseInt(yearStr);
+            return year > 50 ? 1900 + year : 2000 + year;
+        }
+        return Integer.parseInt(yearStr);
+    }
+
+    private int findSectionEnd(String lowerContent, int startPos, String[] endKeywords) {
+        int endIndex = lowerContent.length();
+        for (String endKeyword : endKeywords) {
+            int endPos = lowerContent.indexOf(endKeyword, startPos);
+            if (endPos != -1 && endPos < endIndex) endIndex = endPos;
+        }
         return Math.min(endIndex, startPos + 800);
     }
 
     private String cleanText(String text) {
         if (text == null) return null;
-        return text.replaceAll("\\s+", " ")
-                .replaceAll("\\n+", " ")
-                .trim();
+        return text.replaceAll("\\s+", " ").replaceAll("\\n+", " ").trim();
     }
 
     private String capitalizeWords(String text) {
         if (text == null || text.isEmpty()) return text;
-
         String[] words = text.split("\\s+");
         StringBuilder result = new StringBuilder();
-
         for (String word : words) {
             if (!word.isEmpty()) {
                 result.append(Character.toUpperCase(word.charAt(0)))
@@ -369,7 +346,6 @@ public class CvExtractionService implements CvExtractionServiceInterface {
                         .append(" ");
             }
         }
-
         return result.toString().trim();
     }
 }

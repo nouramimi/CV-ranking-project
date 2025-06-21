@@ -49,6 +49,8 @@ public class CvInfo {
     @JoinColumn(name = "job_offer_id", insertable = false, updatable = false)
     private JobOffer jobOffer;
 
+    private String YearsOfExperience;
+
     public CvInfo() {}
 
     public CvInfo(Long userId, Long jobOfferId, Long companyId, String cvPath) {
@@ -163,7 +165,6 @@ public class CvInfo {
         this.extractedAt = extractedAt;
     }
 
-    // Nouveaux getters et setters pour les relations
     public User getUser() {
         return user;
     }
@@ -178,5 +179,13 @@ public class CvInfo {
 
     public void setJobOffer(JobOffer jobOffer) {
         this.jobOffer = jobOffer;
+    }
+
+    public String getYearsOfExperience() {
+        return YearsOfExperience;
+    }
+
+    public void setYearsOfExperience(String yearsOfExperience) {
+        YearsOfExperience = yearsOfExperience;
     }
 }
