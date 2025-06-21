@@ -19,4 +19,5 @@ public interface JobOfferServiceInterface {
     String getJobDescription(Long jobOfferId, String email);
     Company getCompanyDetailsByJobOfferId(Long jobOfferId, String email);
     Optional<JobOfferWithCompanyDTO> getByIdWithCompany(Long id, String email);
+    List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active);
 }

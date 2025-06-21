@@ -32,6 +32,16 @@ public class JobOfferController {
     }
 
     @GetMapping("/getAll")
+    public ResponseEntity<List<JobOfferWithCompanyDTO>> getAll(
+            @RequestParam(required = false) Boolean active,
+            HttpServletRequest request) {
+
+        String email = extractEmailFromRequest(request);
+        List<JobOfferWithCompanyDTO> response = service.getAllJobOffersWithCompanyInfo(email, active);
+        return ResponseEntity.ok(response);
+    }
+
+    /*@GetMapping("/getAll")
     public ResponseEntity<List<JobOffer>> getAll(@RequestParam(required = false) Boolean active,
                                                  HttpServletRequest request) {
         String email = extractEmailFromRequest(request); // Changed
@@ -40,7 +50,7 @@ public class JobOfferController {
             return ResponseEntity.ok(service.getActiveOffers(email)); // Changed
         }
         return ResponseEntity.ok(service.getAll(email)); // Changed
-    }
+    }*/
 
     @GetMapping("/getById/{id}")
     public ResponseEntity<JobOfferWithCompanyDTO> getById(@PathVariable Long id, HttpServletRequest request) {

@@ -44,18 +44,24 @@ public class JobOfferService implements JobOfferServiceInterface {
         return jobOfferDao.save(offer);
     }
 
-    /*@Override
-    public List<JobOffer> getAll(String email) {
-        Long userCompanyId = authorizationService.getUserCompanyId(email);
-
-        if (userCompanyId == null) {
-            return jobOfferDao.findAll();
+    @Override
+    public List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active) {
+        List<JobOffer> offers;
+        if (Boolean.TRUE.equals(active)) {
+            offers = getActiveOffers(email);
         } else {
-            return jobOfferDao.findAll().stream()
-                    .filter(offer -> userCompanyId.equals(offer.getCompanyId()))
-                    .collect(Collectors.toList());
+            offers = getAll(email);
         }
-    }*/
+
+        return offers.stream()
+                .map(jobOffer -> {
+                    Company company = jobOffer.getCompanyId() != null ?
+                            companyDao.findById(jobOffer.getCompanyId()).orElse(null) :
+                            null;
+                    return new JobOfferWithCompanyDTO(jobOffer, company);
+                })
+                .collect(Collectors.toList());
+    }
 
     @Override
     public List<JobOffer> getAll(String email) {

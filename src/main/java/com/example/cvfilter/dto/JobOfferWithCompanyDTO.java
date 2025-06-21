@@ -31,6 +31,10 @@ public class JobOfferWithCompanyDTO {
     private String companyPhone;
     private String companyLogo;
 
+    public JobOfferWithCompanyDTO(JobOffer jobOffer) {
+        this(jobOffer, null);
+    }
+
     public JobOfferWithCompanyDTO(JobOffer jobOffer, Company company) {
         this.id = jobOffer.getId();
         this.companyId = jobOffer.getCompanyId();
