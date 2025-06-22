@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 from collections import Counter
 import difflib
-from typing import List, Dict, Set, Tuple
+from typing import List, Dict, Set, Tuple, Any
 
 # NLP Libraries
 import spacy
@@ -15,6 +15,11 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
 
+# Database
+import psycopg2
+from psycopg2 import sql
+
+# Download NLTK data
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
@@ -33,19 +38,13 @@ except LookupError:
 class CVDataProcessor:
     """
     A comprehensive CV data processor that standardizes and enriches CV information.
-
-    Required NLP Tools:
-    - spaCy (with en_core_web_sm model): For entity recognition and text processing
-    - fuzzywuzzy: For fuzzy string matching and duplicate detection
-    - NLTK: For text preprocessing and lemmatization
-    - pandas: For data manipulation
-    - numpy: For numerical operations
-    - re: For regular expressions
+    Now with PostgreSQL integration for job offer requirements.
     """
 
-    def __init__(self):
+    def __init__(self, db_config=None):
         try:
             self.nlp = spacy.load("en_core_web_sm")
+            self.db_config = db_config  # Store DB config for PostgreSQL connection
         except OSError:
             print("Please install spaCy English model: python -m spacy download en_core_web_sm")
             raise
@@ -53,136 +52,24 @@ class CVDataProcessor:
         self.lemmatizer = WordNetLemmatizer()
         self.stop_words = set(stopwords.words('english'))
 
+        # Skills mapping dictionary
         self.skills_mapping = {
-            'js': 'JavaScript',
-            'javascript': 'JavaScript',
-            'py': 'Python',
-            'python': 'Python',
-            'java': 'Java',
-            'c++': 'C++',
-            'cpp': 'C++',
-            'c#': 'C#',
-            'csharp': 'C#',
-            'html': 'HTML',
-            'css': 'CSS',
-            'php': 'PHP',
-            'typescript': 'TypeScript',
-            'ts': 'TypeScript',
-            'go': 'Go',
-            'golang': 'Go',
-            'rust': 'Rust',
-            'swift': 'Swift',
-            'kotlin': 'Kotlin',
-            'scala': 'Scala',
-            'r': 'R',
-            'matlab': 'MATLAB',
-
-            'react': 'React',
-            'reactjs': 'React',
-            'react.js': 'React',
-            'angular': 'Angular',
-            'angularjs': 'Angular',
-            'vue': 'Vue.js',
-            'vuejs': 'Vue.js',
-            'vue.js': 'Vue.js',
-            'node': 'Node.js',
-            'nodejs': 'Node.js',
-            'node.js': 'Node.js',
-            'express': 'Express.js',
-            'expressjs': 'Express.js',
-            'express.js': 'Express.js',
-            'django': 'Django',
-            'flask': 'Flask',
-            'spring': 'Spring',
-            'springboot': 'Spring Boot',
-            'spring boot': 'Spring Boot',
-            'laravel': 'Laravel',
-            'rails': 'Ruby on Rails',
-            'ruby on rails': 'Ruby on Rails',
-            'bootstrap': 'Bootstrap',
-            'jquery': 'jQuery',
-            'redux': 'Redux',
-
-            'sql': 'SQL',
-            'mysql': 'MySQL',
-            'postgresql': 'PostgreSQL',
-            'postgres': 'PostgreSQL',
-            'mongodb': 'MongoDB',
-            'mongo': 'MongoDB',
-            'redis': 'Redis',
-            'elasticsearch': 'Elasticsearch',
-            'oracle': 'Oracle',
-            'sqlite': 'SQLite',
-            'cassandra': 'Cassandra',
-            'neo4j': 'Neo4j',
-
-            'git': 'Git',
-            'github': 'GitHub',
-            'gitlab': 'GitLab',
-            'docker': 'Docker',
-            'kubernetes': 'Kubernetes',
-            'k8s': 'Kubernetes',
-            'jenkins': 'Jenkins',
-            'aws': 'AWS',
-            'amazon web services': 'AWS',
-            'azure': 'Microsoft Azure',
-            'gcp': 'Google Cloud Platform',
-            'google cloud': 'Google Cloud Platform',
-            'terraform': 'Terraform',
-            'ansible': 'Ansible',
-            'maven': 'Maven',
-            'gradle': 'Gradle',
-            'npm': 'NPM',
-            'webpack': 'Webpack',
-            'babel': 'Babel',
-            'eslint': 'ESLint',
-            'jest': 'Jest',
-            'junit': 'JUnit',
-            'selenium': 'Selenium',
-            'postman': 'Postman',
-            'jira': 'Jira',
-            'confluence': 'Confluence',
-            'slack': 'Slack',
-            'trello': 'Trello',
-
-            'agile': 'Agile',
-            'scrum': 'Scrum',
-            'kanban': 'Kanban',
-            'devops': 'DevOps',
-            'ci/cd': 'CI/CD',
-            'tdd': 'Test-Driven Development',
-            'bdd': 'Behavior-Driven Development',
-
-            'machine learning': 'Machine Learning',
-            'ml': 'Machine Learning',
-            'artificial intelligence': 'Artificial Intelligence',
-            'ai': 'Artificial Intelligence',
-            'deep learning': 'Deep Learning',
-            'neural networks': 'Neural Networks',
-            'tensorflow': 'TensorFlow',
-            'pytorch': 'PyTorch',
-            'scikit-learn': 'Scikit-learn',
-            'pandas': 'Pandas',
-            'numpy': 'NumPy',
-            'matplotlib': 'Matplotlib',
-            'seaborn': 'Seaborn',
-            'jupyter': 'Jupyter',
-            'data science': 'Data Science',
-            'data analysis': 'Data Analysis',
-            'data visualization': 'Data Visualization',
-            'statistics': 'Statistics',
-            'big data': 'Big Data',
-            'hadoop': 'Hadoop',
-            'spark': 'Apache Spark',
-            'kafka': 'Apache Kafka',
-        }
-
-        self.education_levels = {
-            'phd': 5, 'doctorate': 5, 'doctorat': 5, 'doctoral': 5,
-            'master': 4, 'masters': 4, 'msc': 4, 'ma': 4, 'mba': 4,
-            'bachelor': 3, 'bachelors': 3, 'bsc': 3, 'ba': 3, 'licence': 3,
-            'associate': 2, 'diploma': 2, 'bts': 2, 'dut': 2,
-            'certificate': 1, 'certificat': 1, 'high school': 1, 'baccalauréat': 1
+            'js': 'JavaScript', 'javascript': 'JavaScript',
+            'py': 'Python', 'python': 'Python',
+            'java': 'Java', 'c++': 'C++', 'cpp': 'C++',
+            'c#': 'C#', 'csharp': 'C#', 'html': 'HTML',
+            'css': 'CSS', 'php': 'PHP', 'typescript': 'TypeScript',
+            'ts': 'TypeScript', 'go': 'Go', 'golang': 'Go',
+            'react': 'React', 'angular': 'Angular', 'vue': 'Vue.js',
+            'node': 'Node.js', 'express': 'Express.js',
+            'django': 'Django', 'flask': 'Flask', 'spring': 'Spring',
+            'sql': 'SQL', 'mysql': 'MySQL', 'postgresql': 'PostgreSQL',
+            'mongodb': 'MongoDB', 'redis': 'Redis',
+            'git': 'Git', 'docker': 'Docker', 'kubernetes': 'Kubernetes',
+            'aws': 'AWS', 'azure': 'Microsoft Azure', 'gcp': 'Google Cloud',
+            'machine learning': 'Machine Learning', 'ml': 'Machine Learning',
+            'ai': 'Artificial Intelligence', 'tensorflow': 'TensorFlow',
+            'pytorch': 'PyTorch', 'data science': 'Data Science'
         }
 
     def load_data(self, csv_file_path: str) -> pd.DataFrame:
@@ -190,6 +77,13 @@ class CVDataProcessor:
         try:
             df = pd.read_csv(csv_file_path)
             print(f"Loaded {len(df)} records from {csv_file_path}")
+            
+            # Check for required columns - adjust based on your actual CSV structure
+            required_columns = ['job_offer_id']  # Only require the essential column
+            for col in required_columns:
+                if col not in df.columns:
+                    raise ValueError(f"Input CSV is missing required column: {col}")
+                    
             return df
         except Exception as e:
             print(f"Error loading data: {e}")
@@ -200,10 +94,8 @@ class CVDataProcessor:
         if pd.isna(skills_text) or not skills_text.strip():
             return ""
 
-        skills_text = skills_text.lower()
-
+        skills_text = str(skills_text).lower()
         skills_text = re.sub(r'compétences identifiées:|technical skills:|skills:|compétences:', '', skills_text)
-
         skills = re.split(r'[,;•\n\r\t\|]+', skills_text)
 
         standardized_skills = set()
@@ -228,10 +120,11 @@ class CVDataProcessor:
         return ', '.join(sorted(standardized_skills))
 
     def remove_duplicate_skills(self, skills_text: str) -> str:
+        """Remove duplicate skills using fuzzy matching."""
         if pd.isna(skills_text) or not skills_text.strip():
             return ""
 
-        skills = [s.strip() for s in skills_text.split(',') if s.strip()]
+        skills = [s.strip() for s in str(skills_text).split(',') if s.strip()]
         unique_skills = []
 
         for skill in skills:
@@ -247,15 +140,17 @@ class CVDataProcessor:
         return ', '.join(unique_skills)
 
     def normalize_date_ranges(self, text: str) -> str:
+        """Normalize date ranges to a standard format."""
         if pd.isna(text) or not text.strip():
             return ""
 
+        text = str(text)
         patterns = [
             (r'(\d{2})/(\d{4})\s*[-–—]\s*(\d{2})/(\d{4})', r'\2-\1 to \4-\3'),
             (r'(\d{4})/(\d{2})\s*[-–—]\s*(\d{4})/(\d{2})', r'\1-\2 to \3-\4'),
             (r'(\d{4})\s*[-–—]\s*(\d{4})', r'\1 to \2'),
-            (r'(\d{2})/(\d{4})\s*[-–—]\s*(present|now|current|actuel|aujourd\'hui)', r'\2-\1 to Present'),
-            (r'(\d{4})\s*[-–—]\s*(present|now|current|actuel|aujourd\'hui)', r'\1 to Present'),
+            (r'(\d{2})/(\d{4})\s*[-–—]\s*(present|now|current)', r'\2-\1 to Present'),
+            (r'(\d{4})\s*[-–—]\s*(present|now|current)', r'\1 to Present'),
         ]
 
         normalized_text = text
@@ -264,129 +159,303 @@ class CVDataProcessor:
 
         return normalized_text
 
-    def extract_salary_expectations(self, text: str) -> str:
-        """Extract and normalize salary expectations."""
-        if pd.isna(text) or not text.strip():
-            return ""
-
-        salary_patterns = [
-            r'(\d+k?)\s*[-–]\s*(\d+k?)\s*(€|eur|euro|dollars?|\$|usd)',
-            r'(\d+k?)\s*(€|eur|euro|dollars?|\$|usd)',
-            r'salary\s*expectation:?\s*(\d+k?)\s*(€|eur|euro|dollars?|\$|usd)',
-            r'expected\s*salary:?\s*(\d+k?)\s*(€|eur|euro|dollars?|\$|usd)',
-        ]
-
-        for pattern in salary_patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(0)
-
-        return ""
-
     def compute_total_experience_years(self, experience_text: str) -> float:
         """Compute total years of experience from experience text."""
         if pd.isna(experience_text) or not experience_text.strip():
             return 0.0
 
+        experience_text = str(experience_text)
+
+        # Direct year patterns - more comprehensive
         direct_patterns = [
-            r'(\d+)\s*(?:years?|ans?|yrs?)\s*(?:of\s*)?(?:experience|expérience)',
-            r'(\d+)\+?\s*(?:years?|ans?|yrs?)',
+            r'(\d+)\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)',
+            r'(\d+)\+?\s*(?:years?|yrs?)',
+            r'experience:\s*(\d+)\s*(?:years?|yrs?)',
+            r'(\d+)\s*(?:years?|yrs?)\s*in',
+            r'(\d+)\s*(?:years?|yrs?)\s*(?:work|professional)',
         ]
 
         for pattern in direct_patterns:
             match = re.search(pattern, experience_text, re.IGNORECASE)
             if match:
-                return float(match.group(1))
+                years = float(match.group(1))
+                print(f"  Found direct experience pattern: {years} years")
+                return years
 
-        date_ranges = re.findall(r'(\d{4})\s*[-–—]\s*(?:(\d{4})|(?:present|now|current))', experience_text, re.IGNORECASE)
+        # Look for employment periods and calculate
+        # Patterns like "2020-2023", "Jan 2020 - Dec 2023", etc.
+        date_patterns = [
+            r'(\d{4})\s*[-–—]\s*(\d{4})',  # 2020-2023
+            r'(\d{4})\s*[-–—]\s*(?:present|now|current)',  # 2020-present
+            r'(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})\s*[-–—]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})',  # Jan 2020 - Dec 2023
+        ]
 
         total_years = 0.0
         current_year = datetime.now().year
 
-        for start_year, end_year in date_ranges:
-            start = int(start_year)
-            end = int(end_year) if end_year else current_year
+        for pattern in date_patterns:
+            matches = re.findall(pattern, experience_text, re.IGNORECASE)
+            for match in matches:
+                if len(match) == 2:
+                    start_year = int(match[0])
+                    end_year = int(match[1]) if match[1].isdigit() else current_year
+                else:
+                    start_year = int(match[0])
+                    end_year = current_year
 
-            if start <= end <= current_year and start >= 1990:  # Sanity check
-                total_years += (end - start)
+                if 1990 <= start_year <= current_year and start_year <= end_year:
+                    years_diff = end_year - start_year
+                    total_years += years_diff
+                    print(f"  Found date range: {start_year}-{end_year} = {years_diff} years")
 
-        return total_years
+        # If we found date ranges, use the total
+        if total_years > 0:
+            return total_years
 
-    def compute_highest_degree_level(self, education_text: str) -> int:
-        """Compute the highest degree level from education text."""
-        if pd.isna(education_text) or not education_text.strip():
-            return 0
+        # Fallback: look for any numbers that might indicate experience
+        numbers = re.findall(r'\b(\d+)\b', experience_text)
+        if numbers:
+            # Take the first reasonable number (between 0 and 50)
+            for num_str in numbers:
+                num = int(num_str)
+                if 0 <= num <= 50:
+                    print(f"  Using fallback number: {num} years")
+                    return float(num)
 
-        education_lower = education_text.lower()
-        highest_level = 0
-
-        for degree, level in self.education_levels.items():
-            if degree in education_lower:
-                highest_level = max(highest_level, level)
-
-        return highest_level
+        print(f"  No experience found in: {experience_text[:100]}...")
+        return 0.0
 
     def process_names(self, df: pd.DataFrame) -> pd.DataFrame:
         """Standardize and clean names."""
         def clean_name(name):
             if pd.isna(name) or not name.strip():
-                return ""
+                return name  # Return original if empty
 
+            name = str(name)
             name = re.sub(r'\s+', ' ', name.strip())
+            name = re.sub(r'\b(cv|resume|curriculum|vitae|contact)\b', '', name, flags=re.IGNORECASE)
+            
+            name_parts = [part.title() for part in name.split() if len(part) > 1 and part.isalpha()]
+            return ' '.join(name_parts) if name_parts else name  # Return original if no valid parts
 
-            name = re.sub(r'\b(cv|resume|curriculum|vitae|contact|email|phone|tel|mobile)\b', '', name, flags=re.IGNORECASE)
-
-            name_parts = name.split()
-            cleaned_parts = []
-
-            for part in name_parts:
-                if len(part) > 1 and part.isalpha():
-                    cleaned_parts.append(part.title())
-
-            return ' '.join(cleaned_parts) if cleaned_parts else ""
-
-        df['name_cleaned'] = df['name'].apply(clean_name)
+        if 'name_cleaned' not in df.columns and 'name' in df.columns:
+            df['name_cleaned'] = df['name'].apply(clean_name)
         return df
 
-    def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        print("Starting data processing...")
+    def fetch_job_requirements(self, job_offer_id: str) -> Dict[str, Any]:
+        """Fetch job requirements from PostgreSQL database."""
+        if not self.db_config:
+            print(f"No database configuration provided for job offer {job_offer_id}")
+            return None
 
+        # Query for main job offer info
+        main_query = sql.SQL("""
+            SELECT years_of_experience_required
+            FROM job_offer
+            WHERE id = %s
+        """)
+
+        # Query for skills
+        skills_query = sql.SQL("""
+            SELECT skill
+            FROM job_offer_skills
+            WHERE job_offer_id = %s
+        """)
+
+        try:
+            conn = psycopg2.connect(**self.db_config)
+            cursor = conn.cursor()
+            
+            # Get main job offer data
+            cursor.execute(main_query, (job_offer_id,))
+            main_result = cursor.fetchone()
+            
+            if not main_result:
+                print(f"No job offer found with ID: {job_offer_id}")
+                cursor.close()
+                conn.close()
+                return None
+            
+            # Get skills list
+            cursor.execute(skills_query, (job_offer_id,))
+            skills_results = cursor.fetchall()
+            skills = [skill[0].strip().lower() for skill in skills_results] if skills_results else []
+            
+            cursor.close()
+            conn.close()
+
+            requirements = {
+                'min_experience': main_result[0],
+                'required_skills': skills
+            }
+            
+            print(f"Job offer {job_offer_id} requirements: min_exp={requirements['min_experience']}, skills={len(skills)}")
+            return requirements
+            
+        except Exception as e:
+            print(f"Error fetching job requirements for {job_offer_id}: {e}")
+            return None
+
+    def hard_filter_cvs(self, processed_df: pd.DataFrame, apply_strict_filters: bool = False) -> pd.DataFrame:
+        """
+        Filter CVs based on job requirements from PostgreSQL.
+        
+        Args:
+            processed_df: DataFrame with processed CV data
+            apply_strict_filters: If True, apply strict filtering. If False, use lenient filtering.
+        """
+        print(f"Starting hard filtering on {len(processed_df)} CVs...")
+        print(f"Strict filtering: {apply_strict_filters}")
+        filtered_rows = []
+        
+        for idx, cv_row in processed_df.iterrows():
+            job_offer_id = cv_row['job_offer_id']
+            print(f"Processing CV {idx+1}/{len(processed_df)} for job offer {job_offer_id}")
+            
+            requirements = self.fetch_job_requirements(job_offer_id)
+            
+            if not requirements:
+                print(f"  No requirements found - including CV by default")
+                filtered_rows.append(cv_row)
+                continue
+            
+            # Check experience requirement
+            cv_experience = cv_row.get('total_experience_years', 0)
+            min_exp_required = requirements.get('min_experience')
+            
+            experience_passes = True
+            if min_exp_required is not None and min_exp_required > 0:
+                if apply_strict_filters:
+                    # Strict: must meet exact requirement
+                    if cv_experience < min_exp_required:
+                        print(f"  Experience filter FAILED: CV has {cv_experience} years, need {min_exp_required}")
+                        experience_passes = False
+                    else:
+                        print(f"  Experience filter PASSED: CV has {cv_experience} years, need {min_exp_required}")
+                else:
+                    # Lenient: allow 1-2 years less than required, or any CV with some experience
+                    tolerance = max(1, min_exp_required * 0.3)  # 30% tolerance or minimum 1 year
+                    if cv_experience < (min_exp_required - tolerance):
+                        print(f"  Experience filter FAILED: CV has {cv_experience} years, need {min_exp_required} (tolerance: {tolerance})")
+                        experience_passes = False
+                    else:
+                        print(f"  Experience filter PASSED: CV has {cv_experience} years, need {min_exp_required} (tolerance: {tolerance})")
+            else:
+                print(f"  No experience requirement")
+            
+            # Check skills requirement
+            required_skills = requirements.get('required_skills', [])
+            skills_passes = True
+            
+            if required_skills:
+                cv_skills_text = str(cv_row.get('skills_final', ''))
+                if not cv_skills_text or cv_skills_text == 'nan':
+                    cv_skills_text = str(cv_row.get('skills', ''))
+                
+                cv_skills = {s.strip().lower() for s in cv_skills_text.split(',') if s.strip()}
+                
+                # Use fuzzy matching for skills
+                matched_skills = []
+                for required_skill in required_skills:
+                    for cv_skill in cv_skills:
+                        if fuzz.partial_ratio(required_skill.lower(), cv_skill.lower()) > 70:  # Lowered threshold
+                            matched_skills.append(required_skill)
+                            break
+                
+                if apply_strict_filters:
+                    # Strict: must have all required skills
+                    required_match_count = len(required_skills)
+                else:
+                    # Lenient: must have at least 50% of required skills, minimum 1
+                    required_match_count = max(1, len(required_skills) // 2)
+                
+                if len(matched_skills) < required_match_count:
+                    print(f"  Skills filter FAILED: Found {len(matched_skills)}/{len(required_skills)} required skills (need {required_match_count})")
+                    print(f"    Required: {required_skills}")
+                    print(f"    CV has: {list(cv_skills)}")
+                    print(f"    Matched: {matched_skills}")
+                    skills_passes = False
+                else:
+                    print(f"  Skills filter PASSED: Found {len(matched_skills)}/{len(required_skills)} required skills (need {required_match_count})")
+            else:
+                print(f"  No skills requirement")
+            
+            # Include CV if it passes all filters
+            if experience_passes and skills_passes:
+                print(f"  CV ACCEPTED")
+                filtered_rows.append(cv_row)
+            else:
+                print(f"  CV REJECTED")
+        
+        result_df = pd.DataFrame(filtered_rows)
+        print(f"Hard filtering complete: {len(result_df)}/{len(processed_df)} CVs passed")
+        return result_df
+
+    def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Process the entire dataframe."""
+        print("Starting data processing...")
         processed_df = df.copy()
 
-        print("Processing names...")
-        processed_df = self.process_names(processed_df)
+        # Process names if column exists and not already processed
+        if 'name' in processed_df.columns and 'name_cleaned' not in processed_df.columns:
+            print("Processing names...")
+            processed_df = self.process_names(processed_df)
 
-        print("Standardizing skills...")
-        processed_df['skills_standardized'] = processed_df['skills'].apply(self.standardize_skills)
+        # Standardize skills if column exists and not already processed
+        if 'skills' in processed_df.columns and 'skills_standardized' not in processed_df.columns:
+            print("Standardizing skills...")
+            processed_df['skills_standardized'] = processed_df['skills'].apply(self.standardize_skills)
 
-        print("Removing duplicate skills...")
-        processed_df['skills_final'] = processed_df['skills_standardized'].apply(self.remove_duplicate_skills)
+        # Remove duplicate skills if not already done
+        if 'skills_standardized' in processed_df.columns and 'skills_final' not in processed_df.columns:
+            print("Removing duplicate skills...")
+            processed_df['skills_final'] = processed_df['skills_standardized'].apply(self.remove_duplicate_skills)
+        elif 'skills' in processed_df.columns and 'skills_final' not in processed_df.columns:
+            print("Processing skills directly to final...")
+            processed_df['skills_final'] = processed_df['skills'].apply(self.remove_duplicate_skills)
 
-        print("Normalizing experience dates...")
-        processed_df['experience_normalized'] = processed_df['experience'].apply(self.normalize_date_ranges)
+        # Normalize experience dates if column exists and not already processed
+        if 'experience' in processed_df.columns and 'experience_normalized' not in processed_df.columns:
+            print("Normalizing experience dates...")
+            processed_df['experience_normalized'] = processed_df['experience'].apply(self.normalize_date_ranges)
 
-        print("Normalizing education dates...")
-        processed_df['education_normalized'] = processed_df['education'].apply(self.normalize_date_ranges)
-
-        print("Extracting salary expectations...")
-        processed_df['salary_expectations'] = processed_df['description'].apply(self.extract_salary_expectations)
-
-        print("Computing total experience years...")
-        processed_df['total_experience_years'] = processed_df['experience_normalized'].apply(self.compute_total_experience_years)
-
-        print("Computing highest degree level...")
-        processed_df['highest_degree_level'] = processed_df['education_normalized'].apply(self.compute_highest_degree_level)
+        # Compute experience years if not already done
+        if 'total_experience_years' not in processed_df.columns:
+            print("Computing total experience years...")
+            if 'experience_normalized' in processed_df.columns:
+                processed_df['total_experience_years'] = processed_df['experience_normalized'].apply(
+                    self.compute_total_experience_years
+                )
+            elif 'experience' in processed_df.columns:
+                processed_df['total_experience_years'] = processed_df['experience'].apply(
+                    self.compute_total_experience_years
+                )
+            else:
+                processed_df['total_experience_years'] = 0.0
 
         processed_df['processed_at'] = datetime.now().isoformat()
-
         print("Data processing completed!")
         return processed_df
 
     def save_processed_data(self, df: pd.DataFrame, output_file: str):
         """Save the processed data to CSV."""
         try:
-            df.to_csv(output_file, index=False, encoding='utf-8')
-            print(f"Processed data saved to {output_file}")
+            # Add timestamp to filename to avoid permission issues
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            base_name = output_file.split('.')[0]
+            timestamped_file = f"{base_name}_{timestamp}.csv"
+            
+            df.to_csv(timestamped_file, index=False, encoding='utf-8')
+            print(f"Processed data saved to {timestamped_file}")
+        except PermissionError:
+            # Try alternative filename if original is locked
+            alt_file = f"shortlisted_cvs_backup_{timestamp}.csv"
+            try:
+                df.to_csv(alt_file, index=False, encoding='utf-8')
+                print(f"Original file locked, saved to {alt_file}")
+            except Exception as e2:
+                print(f"Error saving to backup file: {e2}")
+                raise
         except Exception as e:
             print(f"Error saving data: {e}")
             raise
@@ -397,57 +466,136 @@ class CVDataProcessor:
         print("CV DATA PROCESSING REPORT")
         print("="*50)
 
-        print(f"Total records processed: {len(processed_df)}")
-        print(f"Records with names: {len(processed_df[processed_df['name_cleaned'].str.len() > 0])}")
-        print(f"Records with standardized skills: {len(processed_df[processed_df['skills_final'].str.len() > 0])}")
-        print(f"Records with experience years calculated: {len(processed_df[processed_df['total_experience_years'] > 0])}")
-        print(f"Records with degree level identified: {len(processed_df[processed_df['highest_degree_level'] > 0])}")
+        print(f"Original records: {len(original_df)}")
+        print(f"Final records: {len(processed_df)}")
+        print(f"Filtered out: {len(original_df) - len(processed_df)}")
+        
+        if len(processed_df) == 0:
+            print("No records in final dataset - check filtering criteria!")
+            return
+        
+        # Name processing stats
+        name_col = None
+        if 'name_cleaned' in processed_df.columns:
+            name_col = 'name_cleaned'
+        elif 'name' in processed_df.columns:
+            name_col = 'name'
+            
+        if name_col:
+            name_count = len(processed_df[processed_df[name_col].notna() & (processed_df[name_col].str.len() > 0)])
+            print(f"Records with names: {name_count}")
+        else:
+            print("No name data available")
+                
+        # Skills processing stats
+        skills_col = None
+        if 'skills_final' in processed_df.columns:
+            skills_col = 'skills_final'
+        elif 'skills' in processed_df.columns:
+            skills_col = 'skills'
+            
+        if skills_col:
+            skills_count = len(processed_df[processed_df[skills_col].notna() & (processed_df[skills_col].str.len() > 0)])
+            print(f"Records with skills: {skills_count}")
+        else:
+            print("No skills data available")
+                
+        # Experience stats
+        if 'total_experience_years' in processed_df.columns:
+            exp_count = len(processed_df[processed_df['total_experience_years'] > 0])
+            print(f"Records with experience years calculated: {exp_count}")
+        else:
+            print("No experience data available")
 
-        all_skills = []
-        for skills in processed_df['skills_final'].dropna():
-            if skills:
-                all_skills.extend([s.strip() for s in skills.split(',')])
+        # Skills analysis
+        if skills_col:
+            all_skills = []
+            for skills in processed_df[skills_col].dropna():
+                if skills and str(skills) != 'nan':
+                    all_skills.extend([s.strip() for s in str(skills).split(',')])
 
-        skill_counts = Counter(all_skills)
-        print(f"\nTop 10 most common skills:")
-        for skill, count in skill_counts.most_common(10):
-            print(f"  {skill}: {count}")
+            if all_skills:
+                skill_counts = Counter(all_skills)
+                print("\nTop 10 most common skills:")
+                for skill, count in skill_counts.most_common(10):
+                    print(f"  {skill}: {count}")
+            else:
+                print("\nNo skills data available for analysis")
+        else:
+            print("\nNo skills column available for analysis")
 
-        exp_stats = processed_df['total_experience_years'].describe()
-        print(f"\nExperience statistics:")
-        print(f"  Average experience: {exp_stats['mean']:.1f} years")
-        print(f"  Max experience: {exp_stats['max']:.1f} years")
-        print(f"  Min experience: {exp_stats['min']:.1f} years")
-
-        degree_counts = processed_df['highest_degree_level'].value_counts().sort_index()
-        degree_names = {0: 'Unknown', 1: 'Certificate/High School', 2: 'Associate/Diploma',
-                       3: 'Bachelor', 4: 'Master', 5: 'PhD/Doctorate'}
-
-        print(f"\nDegree level distribution:")
-        for level, count in degree_counts.items():
-            print(f"  {degree_names.get(level, f'Level {level}')}: {count}")
-
+        # Experience analysis
+        if 'total_experience_years' in processed_df.columns:
+            exp_data = processed_df['total_experience_years']
+            exp_stats = exp_data.describe()
+            print("\nExperience statistics:")
+            print(f"  Average experience: {exp_stats['mean']:.1f} years")
+            print(f"  Max experience: {exp_stats['max']:.1f} years")
+            print(f"  Min experience: {exp_stats['min']:.1f} years")
+            print(f"  Records with 0 experience: {len(exp_data[exp_data == 0])}")
+        else:
+            print("\nNo experience data available for statistics")
 
 def main():
+    # PostgreSQL configuration
+    db_config = {
+        'host': 'localhost',
+        'database': 'cv_filter',
+        'user': 'postgres',
+        'password': '2003',
+        'port': '5432'
+    }
 
-    processor = CVDataProcessor()
-
-    input_file = "cv_extracted_info.csv"
-    output_file = "cv_processed_data.csv"
+    processor = CVDataProcessor(db_config)
+    input_file = "cv_processed_data.csv"
+    output_file = "shortlisted_cvs.csv"
 
     try:
+        # Load data
         df = processor.load_data(input_file)
-
+        print(f"Loaded columns: {list(df.columns)}")
+        
+        # Process dataframe
         processed_df = processor.process_dataframe(df)
+        print(f"After processing: {len(processed_df)} records")
 
-        processor.save_processed_data(processed_df, output_file)
+        # Try lenient filtering first
+        print("\n" + "="*50)
+        print("TRYING LENIENT FILTERING FIRST")
+        print("="*50)
+        shortlisted_df = processor.hard_filter_cvs(processed_df, apply_strict_filters=False)
+        print(f"After lenient filtering: {len(shortlisted_df)} records")
 
-        processor.generate_report(df, processed_df)
+        # If no results with lenient filtering, show some sample data for debugging
+        if len(shortlisted_df) == 0:
+            print("\n" + "="*50)
+            print("NO CVS PASSED LENIENT FILTERING - DEBUGGING INFO")
+            print("="*50)
+            
+            # Show sample experience data
+            print("\nSample experience data:")
+            for idx, row in processed_df.head(5).iterrows():
+                print(f"CV {idx+1}:")
+                print(f"  Original experience: {str(row.get('experience', 'N/A'))[:100]}...")
+                print(f"  Calculated years: {row.get('total_experience_years', 0)}")
+                print(f"  Skills: {str(row.get('skills_final', row.get('skills', 'N/A')))[:100]}...")
+                print()
+            
+            # Try without any filtering for debugging
+            print("Saving all processed CVs for debugging...")
+            processor.save_processed_data(processed_df, "debug_all_cvs.csv")
+        else:
+            # Save results
+            processor.save_processed_data(shortlisted_df, output_file)
 
-        print(f"\nProcessing complete! Check {output_file} for results.")
+        processor.generate_report(df, shortlisted_df if len(shortlisted_df) > 0 else processed_df)
+
+        print(f"\nProcessing complete!")
 
     except Exception as e:
         print(f"Error in main processing: {e}")
+        import traceback
+        traceback.print_exc()
         raise
 
 
