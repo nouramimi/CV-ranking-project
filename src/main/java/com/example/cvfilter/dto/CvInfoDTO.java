@@ -18,6 +18,7 @@ public class CvInfoDTO {
     private String phone;
     private String skills;
     private Long userId;
+    private String highestDegree;
 
     public CvInfoDTO(CvInfo cvInfo) {
         this.id = cvInfo.getId();
@@ -33,9 +34,9 @@ public class CvInfoDTO {
         this.phone = cvInfo.getPhone();
         this.skills = cvInfo.getSkills();
         this.userId = cvInfo.getUserId();
+        this.highestDegree=cvInfo.getHighestDegree();
     }
 
-    // Getters
     public Long getId() {
         return id;
     }
@@ -86,5 +87,9 @@ public class CvInfoDTO {
 
     public Long getUserId() {
         return userId;
+    }
+
+    public String getHighestDegree() {
+        return highestDegree;
     }
 }

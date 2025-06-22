@@ -15,8 +15,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -295,4 +296,95 @@ public class JobOfferService implements JobOfferServiceInterface {
         return companyDao.findById(companyId)
                 .orElseThrow(() -> new RuntimeException("Company not found with ID: " + companyId));
     }
+
+
+
+    @Override
+    public JobOffer parseJobOfferFromDescription(String jobTitle, String jobDescription) {
+        JobOffer jobOffer = new JobOffer();
+        jobOffer.setTitle(jobTitle);
+        jobOffer.setDescription(jobDescription);
+
+        Set<String> extractedSkills = extractSkillsFromDescription(jobDescription);
+        jobOffer.setSkills(new ArrayList<>(extractedSkills));
+
+        Double experienceYears = extractExperienceFromDescription(jobDescription);
+        if (experienceYears != null) {
+            jobOffer.setYearsOfExperienceRequired(experienceYears.intValue());
+        }
+
+        return jobOffer;
+    }
+
+    public Set<String> extractSkillsFromDescription(String description) {
+        if (description == null || description.trim().isEmpty()) {
+            return new HashSet<>();
+        }
+
+        String descriptionLower = description.toLowerCase();
+        Set<String> skills = new HashSet<>();
+
+        String[] commonSkills = {
+                "java", "javascript", "python", "react", "angular", "vue", "node.js",
+                "spring", "spring boot", "django", "flask", "mysql", "postgresql",
+                "mongodb", "sql", "html", "css", "bootstrap", "tailwind",
+                "aws", "azure", "docker", "kubernetes", "git", "linux",
+                "c++", "c#", "php", "ruby", "go", "rust", "kotlin", "swift"
+        };
+
+        for (String skill : commonSkills) {
+            if (descriptionLower.contains(skill.toLowerCase())) {
+                skills.add(skill.substring(0, 1).toUpperCase() + skill.substring(1));
+            }
+        }
+
+        return skills;
+    }
+
+    public Double extractExperienceFromDescription(String description) {
+        if (description == null || description.trim().isEmpty()) {
+            return null;
+        }
+
+        Pattern pattern = Pattern.compile(
+                "(\\d+)(?:\\+|\\s*(?:to|-)\\s*\\d+)?\\s*(?:years?|yrs?)(?:\\s*(?:of\\s*)?experience)?",
+                Pattern.CASE_INSENSITIVE
+        );
+
+        Matcher matcher = pattern.matcher(description);
+        if (matcher.find()) {
+            try {
+                return Double.parseDouble(matcher.group(1));
+            } catch (NumberFormatException e) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    public String extractEducationFromDescription(String description) {
+        if (description == null || description.trim().isEmpty()) {
+            return null;
+        }
+
+        String descriptionLower = description.toLowerCase();
+
+        if (descriptionLower.contains("phd") || descriptionLower.contains("doctorate")) {
+            return "PhD";
+        }
+        if (descriptionLower.contains("master") || descriptionLower.contains("mba")) {
+            return "Master";
+        }
+        if (descriptionLower.contains("bachelor") || descriptionLower.contains("undergraduate")) {
+            return "Bachelor";
+        }
+        if (descriptionLower.contains("diploma") || descriptionLower.contains("certificate")) {
+            return "Diploma";
+        }
+
+        return null;
+    }
+
+
 }

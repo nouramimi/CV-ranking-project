@@ -13,8 +13,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -348,4 +347,13 @@ public class CvExtractionService implements CvExtractionServiceInterface {
         }
         return result.toString().trim();
     }
+
+
+
+
+
+
+
+
+
 }

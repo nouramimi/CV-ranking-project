@@ -8,4 +8,5 @@ import java.io.IOException;
 public interface CvExtractionServiceInterface {
     CvInfo extractCvInfo(File cvFile, Long userId, Long companyId, Long jobOfferId) throws IOException;
     CvInfo extractCvInfo(File cvFile, Long userId) throws IOException;
+
 }

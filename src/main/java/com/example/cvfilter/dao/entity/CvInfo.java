@@ -51,6 +51,8 @@ public class CvInfo {
 
     private String YearsOfExperience;
 
+    private String highestDegree;
+
     public CvInfo() {}
 
     public CvInfo(Long userId, Long jobOfferId, Long companyId, String cvPath) {
@@ -187,5 +189,13 @@ public class CvInfo {
 
     public void setYearsOfExperience(String yearsOfExperience) {
         YearsOfExperience = yearsOfExperience;
+    }
+
+    public String getHighestDegree() {
+        return highestDegree;
+    }
+
+    public void setHighestDegree(String highestDegree) {
+        this.highestDegree = highestDegree;
     }
 }

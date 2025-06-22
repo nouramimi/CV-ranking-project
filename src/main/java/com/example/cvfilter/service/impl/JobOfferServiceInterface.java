@@ -6,6 +6,7 @@ import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface JobOfferServiceInterface {
     JobOffer create(JobOffer offer, String email);
@@ -20,4 +21,11 @@ public interface JobOfferServiceInterface {
     Company getCompanyDetailsByJobOfferId(Long jobOfferId, String email);
     Optional<JobOfferWithCompanyDTO> getByIdWithCompany(Long id, String email);
     List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active);
+
+
+    JobOffer parseJobOfferFromDescription(String jobTitle, String jobDescription);
+    Set<String> extractSkillsFromDescription(String description);
+    Double extractExperienceFromDescription(String description);
+    String extractEducationFromDescription(String description);
+
 }

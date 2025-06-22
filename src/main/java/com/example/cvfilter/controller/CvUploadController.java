@@ -36,8 +36,8 @@ public class CvUploadController {
     public ResponseEntity<String> uploadCv(@PathVariable Long jobId,
                                            @RequestParam("file") MultipartFile file,
                                            HttpServletRequest request) throws IOException {
-        String email = extractEmailFromRequest(request); // Changed from username to email
-        String path = cvUploadService.uploadCv(jobId, file, email); // Changed parameter
+        String email = extractEmailFromRequest(request);
+        String path = cvUploadService.uploadCv(jobId, file, email);
         return ResponseEntity.ok("CV uploaded to: " + path);
     }
 
@@ -67,23 +67,23 @@ public class CvUploadController {
 
     @GetMapping("/user/applications")
     public ResponseEntity<List<Long>> getUserApplications(HttpServletRequest request) {
-        String email = extractEmailFromRequest(request); // Changed
-        Long userId = authorizationService.getUserIdByEmail(email); // Changed
+        String email = extractEmailFromRequest(request);
+        Long userId = authorizationService.getUserIdByEmail(email);
         return ResponseEntity.ok(cvUploadService.getJobOffersForUser(userId));
     }
 
     @GetMapping("/user/has-applied/{jobId}")
     public ResponseEntity<Boolean> hasUserAppliedToJob(@PathVariable Long jobId,
                                                        HttpServletRequest request) {
-        String email = extractEmailFromRequest(request); // Changed
-        Long userId = authorizationService.getUserIdByEmail(email); // Changed
+        String email = extractEmailFromRequest(request);
+        Long userId = authorizationService.getUserIdByEmail(email);
         return ResponseEntity.ok(cvUploadService.hasUserAppliedToJob(jobId, userId));
     }
 
     @GetMapping("/user/cvs")
     public ResponseEntity<List<CvInfo>> getUserCvs(HttpServletRequest request) {
-        String email = extractEmailFromRequest(request); // Changed
-        Long userId = authorizationService.getUserIdByEmail(email); // Changed
+        String email = extractEmailFromRequest(request);
+        Long userId = authorizationService.getUserIdByEmail(email);
         return ResponseEntity.ok(cvUploadService.getCvInfosByUser(userId));
     }
 
