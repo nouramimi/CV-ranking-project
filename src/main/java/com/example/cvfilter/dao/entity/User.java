@@ -12,8 +12,6 @@ import jakarta.validation.constraints.NotBlank;
 @Table(name = "app_user", uniqueConstraints = {
         @UniqueConstraint(columnNames = "email")
 })
-@NoArgsConstructor
-@AllArgsConstructor
 public class User {
 
     @Id

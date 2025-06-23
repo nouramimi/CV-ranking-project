@@ -8,6 +8,7 @@ import com.example.cvfilter.service.impl.CvRankingServiceInterface;
 import com.example.cvfilter.service.impl.EmailServiceInterface;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ public class CvRankingController {
                                                             HttpServletRequest request) {
         String username = extractUsernameFromRequest(request);
         List<CvRanking> rankings = cvRankingService.getBestCvsForJob(jobOfferId, username);
+        SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ResponseEntity.ok(rankings);
     }
 

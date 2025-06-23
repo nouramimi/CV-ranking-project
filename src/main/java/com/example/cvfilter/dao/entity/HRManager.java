@@ -6,8 +6,6 @@ import lombok.*;
 @Entity
 @DiscriminatorValue("HR_MANAGER")
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class HRManager extends User {
 
     @ManyToOne

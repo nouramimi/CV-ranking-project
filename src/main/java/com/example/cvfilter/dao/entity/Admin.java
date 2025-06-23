@@ -6,8 +6,6 @@ import lombok.*;
 @Entity
 @DiscriminatorValue("ADMIN")
 @Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class Admin extends User {
 
     @ManyToOne

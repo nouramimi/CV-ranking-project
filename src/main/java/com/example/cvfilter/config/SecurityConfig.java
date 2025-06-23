@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.*;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.*;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -28,16 +29,18 @@ public class SecurityConfig {
 
         return http
                 .csrf(csrf -> csrf.disable())
+                .httpBasic(Customizer.withDefaults())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
                     logger.debug("Configuring authorization rules");
                     auth
                             .requestMatchers("/api/auth/**").permitAll()
-                            .requestMatchers("/error").permitAll()
+                            .requestMatchers("/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+
                             .requestMatchers("/api/cv/upload", "/api/job-offers/getAll", "/api/job-offers/getById/**").hasRole("USER")
                             .requestMatchers("/api/job-offers/**").hasAnyRole("ADMIN", "HR_MANAGER")
-                            .requestMatchers("/api/cv-ranking/**","/api/cv/**").hasAnyRole("ADMIN", "HR_MANAGER")
-                            .requestMatchers("/api/companies/**","/api/hr-managers/**").hasRole("ADMIN")
+                            .requestMatchers("/api/cv-ranking/**", "/api/cv/**").hasAnyRole("ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/companies/**", "/api/hr-managers/**").hasRole("ADMIN")
                             .anyRequest().authenticated();
                 })
                 .exceptionHandling(ex -> ex
