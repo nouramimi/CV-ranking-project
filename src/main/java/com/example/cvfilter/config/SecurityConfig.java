@@ -30,7 +30,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, CustomCorsConfiguration customCorsConfiguration) throws Exception {
         logger.info("Configuring Security Filter Chain");
 
         return http
@@ -39,17 +39,18 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     logger.debug("Configuring authorization rules");
                     auth
-                            .requestMatchers("/api/auth/**","/api/job-offers/getAll").permitAll()
-                            .requestMatchers("/error").permitAll()
+                            .requestMatchers("/api/auth/**","/api/job-offers/getAll", "/api/job-offers/getById/**","/error").permitAll()
+
                             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                             .requestMatchers(swaggerWhiteListApi).permitAll()
 
-                            .requestMatchers("/api/cv/upload", "/api/job-offers/getById/**").hasRole("USER")
+                            .requestMatchers("/api/cv/upload/**", "/api/cv/user/applications").hasRole("USER")
                             .requestMatchers("/api/job-offers/**").hasAnyRole("ADMIN", "HR_MANAGER")
                             .requestMatchers("/api/cv-ranking/**", "/api/cv/**").hasAnyRole("ADMIN", "HR_MANAGER")
                             .requestMatchers("/api/companies/**", "/api/hr-managers/**").hasRole("ADMIN")
                             .anyRequest().authenticated();
                 })
+                .cors(c -> c.configurationSource(customCorsConfiguration))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             logger.warn("Authentication failed for request: {} - {}",
