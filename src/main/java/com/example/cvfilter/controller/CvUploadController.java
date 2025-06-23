@@ -6,10 +6,12 @@ import com.example.cvfilter.dao.entity.CvInfo;
 import com.example.cvfilter.dao.entity.User;
 import com.example.cvfilter.dto.CvInfoDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
+import com.example.cvfilter.dto.PaginatedResponse;
 import com.example.cvfilter.exception.UserNotFoundException;
 import com.example.cvfilter.service.impl.AuthorizationServiceInterface;
 import com.example.cvfilter.service.impl.CvUploadServiceInterface;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -45,13 +47,64 @@ public class CvUploadController {
     }
 
     @GetMapping("/job/{jobId}/candidates")
+    public ResponseEntity<PaginatedResponse<CvInfoDTO>> getCandidatesForJob(
+            @PathVariable Long jobId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Page<CvInfo> cvInfos = cvUploadService.getCandidatesForJobOffer(jobId, page, size);
+
+        List<CvInfoDTO> dtos = cvInfos.getContent().stream()
+                .map(CvInfoDTO::new)
+                .collect(Collectors.toList());
+
+        PaginatedResponse<CvInfoDTO> response = new PaginatedResponse<>(
+                dtos,
+                cvInfos.getNumber(),
+                cvInfos.getSize(),
+                cvInfos.getTotalElements(),
+                cvInfos.getTotalPages()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/user/applications")
+    public ResponseEntity<PaginatedResponse<JobOfferWithCompanyDTO>> getUserJobApplications(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+
+        if (userId == null) {
+            String email = extractEmailFromRequest(request);
+            User user = userDao.findByEmail(email)
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
+            userId = user.getId();
+        }
+
+        Page<JobOfferWithCompanyDTO> jobOffers =
+                cvUploadService.getJobOffersWithCompanyDetailsForUser(userId, page, size);
+
+        PaginatedResponse<JobOfferWithCompanyDTO> response = new PaginatedResponse<>(
+                jobOffers.getContent(),
+                jobOffers.getNumber(),
+                jobOffers.getSize(),
+                jobOffers.getTotalElements(),
+                jobOffers.getTotalPages()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
+    /*@GetMapping("/job/{jobId}/candidates")
     public ResponseEntity<List<CvInfoDTO>> getCandidatesForJob(@PathVariable Long jobId) {
         List<CvInfo> cvInfos = cvUploadService.getCandidatesForJobOffer(jobId);
         List<CvInfoDTO> dtos = cvInfos.stream()
                 .map(CvInfoDTO::new)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(dtos);
-    }
+    }*/
 
     @GetMapping("/job/{jobId}/unique-candidates")
     public ResponseEntity<List<CvInfo>> getUniqueCandidatesForJob(@PathVariable Long jobId) {
@@ -68,7 +121,7 @@ public class CvUploadController {
         return ResponseEntity.ok(cvUploadService.getCandidatesWithExtractedInfo(jobId));
     }
 
-    @GetMapping("/user/applications")
+    /*@GetMapping("/user/applications")
     public ResponseEntity<List<JobOfferWithCompanyDTO>> getUserJobApplications(
             @RequestParam(required = false) Long userId,
             HttpServletRequest request) {
@@ -84,7 +137,7 @@ public class CvUploadController {
         List<JobOfferWithCompanyDTO> jobOffers =
                 cvUploadService.getJobOffersWithCompanyDetailsForUser(userId);
         return ResponseEntity.ok(jobOffers);
-    }
+    }*/
 
     @GetMapping("/user/has-applied/{jobId}")
     public ResponseEntity<Boolean> hasUserAppliedToJob(@PathVariable Long jobId,

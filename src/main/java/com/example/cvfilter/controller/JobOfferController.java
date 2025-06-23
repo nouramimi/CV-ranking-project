@@ -5,6 +5,7 @@ import com.example.cvfilter.dao.entity.Company;
 import com.example.cvfilter.dao.entity.JobOffer;
 import com.example.cvfilter.dto.JobOfferDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
+import com.example.cvfilter.dto.PaginatedResponse;
 import com.example.cvfilter.exception.JobOfferNotFoundException;
 import com.example.cvfilter.service.impl.JobOfferServiceInterface;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,13 +33,26 @@ public class JobOfferController {
         return ResponseEntity.ok(createdOffer);
     }
 
-    @GetMapping("/getAll")
+    /*@GetMapping("/getAll")
     public ResponseEntity<List<JobOfferWithCompanyDTO>> getAll(
             @RequestParam(required = false) Boolean active,
             HttpServletRequest request) {
 
         String email = extractEmailFromRequest(request);
         List<JobOfferWithCompanyDTO> response = service.getAllJobOffersWithCompanyInfo(email, active);
+        return ResponseEntity.ok(response);
+    }*/
+
+    @GetMapping("/getAll")
+    public ResponseEntity<PaginatedResponse<JobOfferWithCompanyDTO>> getAll(
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+
+        String email = extractEmailFromRequest(request);
+        PaginatedResponse<JobOfferWithCompanyDTO> response =
+                service.getAllJobOffersWithCompanyInfo(email, active, page, size);
         return ResponseEntity.ok(response);
     }
 

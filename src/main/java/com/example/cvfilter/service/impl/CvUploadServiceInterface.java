@@ -2,6 +2,7 @@ package com.example.cvfilter.service.impl;
 
 import com.example.cvfilter.dao.entity.CvInfo;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
+import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -10,7 +11,8 @@ import java.util.List;
 public interface CvUploadServiceInterface {
     String uploadCv(Long jobId, MultipartFile file) throws IOException;
     String uploadCv(Long jobId, MultipartFile file, String email) throws IOException;
-    List<CvInfo> getCandidatesForJobOffer(Long jobOfferId);
+    //List<CvInfo> getCandidatesForJobOffer(Long jobOfferId);
+    Page<CvInfo> getCandidatesForJobOffer(Long jobOfferId, int page, int size);
     List<CvInfo> getUniqueCandidatesForJobOffer(Long jobOfferId);
     long getCandidateCountForJobOffer(Long jobOfferId);
     List<CvInfo> getCvInfosForJobOffer(Long jobOfferId);
@@ -24,6 +26,6 @@ public interface CvUploadServiceInterface {
     List<CvInfo> searchCandidatesByEducation(Long jobOfferId, String education);
     void updateCvInfo(Long cvInfoId, String name, String email, String phone,
                       String description, String skills, String experience, String education);
-    List<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId);
-
+    //List<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId);
+    Page<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId, int page, int size);
 }

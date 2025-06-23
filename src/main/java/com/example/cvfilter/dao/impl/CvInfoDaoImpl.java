@@ -3,6 +3,8 @@ package com.example.cvfilter.dao.impl;
 import com.example.cvfilter.dao.CvInfoDao;
 import com.example.cvfilter.dao.entity.CvInfo;
 import com.example.cvfilter.dao.repository.CvInfoRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -100,6 +102,16 @@ public class CvInfoDaoImpl implements CvInfoDao {
     @Override
     public List<CvInfo> findByJobOfferIdWithAllFields(Long jobOfferId) {
         return cvInfoRepository.findByJobOfferIdWithAllFields(jobOfferId);
+    }
+
+    @Override
+    public Page<CvInfo> findByJobOfferIdWithAllFields(Long jobOfferId, Pageable pageable) {
+        return cvInfoRepository.findByJobOfferIdWithAllFields(jobOfferId, pageable);
+    }
+
+    @Override
+    public Page<Long> findDistinctJobOfferIdsByUserId(Long userId, Pageable pageable) {
+        return cvInfoRepository.findDistinctJobOfferIdsByUserId(userId, pageable);
     }
 
 }

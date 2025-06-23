@@ -15,6 +15,10 @@ import com.example.cvfilter.exception.UserNotFoundException;
 import com.example.cvfilter.service.impl.CvExtractionServiceInterface;
 import com.example.cvfilter.service.impl.CvUploadServiceInterface;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -84,26 +88,6 @@ public class CvUploadService implements CvUploadServiceInterface {
         return finalPath.toString();
     }
 
-    /*@Override
-    public String uploadCv(Long jobId, MultipartFile file) throws IOException {
-        if (!jobOfferDao.existsById(jobId)) {
-            throw new IllegalArgumentException("Job offer not found");
-        }
-
-        Path jobDir = Paths.get(storagePath, String.valueOf(jobId));
-        Files.createDirectories(jobDir);
-
-        Path filePath = jobDir.resolve(file.getOriginalFilename());
-        Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
-        CvInfo cvInfo = cvExtractionService.extractAndSaveCvInfo(
-                tempFile,
-                user.getId(),
-                jobOffer.getCompanyId(),
-                jobId
-        );
-        return filePath.toString();
-    }*/
-
     @Override
     public String uploadCv(Long jobId, MultipartFile file, String email) {
         JobOffer jobOffer = jobOfferDao.findById(jobId)
@@ -151,14 +135,21 @@ public class CvUploadService implements CvUploadServiceInterface {
 
 
 
+    @Override
+    public Page<CvInfo> getCandidatesForJobOffer(Long jobOfferId, int page, int size) {
+        if (!jobOfferDao.existsById(jobOfferId)) {
+            throw new JobOfferNotFoundException("Job offer not found with ID: " + jobOfferId);
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        return cvInfoDao.findByJobOfferIdWithAllFields(jobOfferId, pageable);
+    }
 
-
-    public List<CvInfo> getCandidatesForJobOffer(Long jobOfferId) {
+    /*public List<CvInfo> getCandidatesForJobOffer(Long jobOfferId) {
         if (!jobOfferDao.existsById(jobOfferId)) {
             throw new JobOfferNotFoundException("Job offer not found with ID: " + jobOfferId);
         }
         return cvInfoDao.findByJobOfferIdWithAllFields(jobOfferId);
-    }
+    }*/
 
     public List<CvInfo> getUniqueCandidatesForJobOffer(Long jobOfferId) {
         if (!jobOfferDao.existsById(jobOfferId)) {
@@ -270,6 +261,30 @@ public class CvUploadService implements CvUploadServiceInterface {
     }
 
     @Override
+    public Page<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId, int page, int size) {
+        if (!userDao.existsById(userId)) {
+            throw new UserNotFoundException("User not found with ID: " + userId);
+        }
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Long> jobOfferIdsPage = cvInfoDao.findDistinctJobOfferIdsByUserId(userId, pageable);
+
+        List<JobOfferWithCompanyDTO> content = jobOfferIdsPage.getContent().stream()
+                .map(jobOfferId -> {
+                    JobOffer jobOffer = jobOfferDao.findById(jobOfferId)
+                            .orElseThrow(() -> new JobOfferNotFoundException(
+                                    "Job offer not found with ID: " + jobOfferId));
+
+                    Company company = companyDao.findById(jobOffer.getCompanyId())
+                            .orElse(null);
+
+                    return new JobOfferWithCompanyDTO(jobOffer, company);
+                })
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(content, pageable, jobOfferIdsPage.getTotalElements());
+    }
+
+    /*@Override
     public List<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId) {
         if (!userDao.existsById(userId)) {
             throw new UserNotFoundException("User not found with ID: " + userId);
@@ -290,5 +305,6 @@ public class CvUploadService implements CvUploadServiceInterface {
                     return new JobOfferWithCompanyDTO(jobOffer, company);
                 })
                 .collect(Collectors.toList());
-    }
+    }*/
+
 }

@@ -4,6 +4,7 @@ import com.example.cvfilter.dao.entity.Company;
 import com.example.cvfilter.dao.entity.JobOffer;
 import com.example.cvfilter.dto.JobOfferDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
+import com.example.cvfilter.dto.PaginatedResponse;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,8 +22,9 @@ public interface JobOfferServiceInterface {
     String getJobDescription(Long jobOfferId, String email);
     Company getCompanyDetailsByJobOfferId(Long jobOfferId, String email);
     Optional<JobOfferWithCompanyDTO> getByIdWithCompany(Long id, String email);
-    List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active);
-
+    //List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active);
+    PaginatedResponse<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(
+            String email, Boolean active, int page, int size);
     JobOffer parseJobOfferFromDescription(String jobTitle, String jobDescription);
     Set<String> extractSkillsFromDescription(String description);
     Double extractExperienceFromDescription(String description);

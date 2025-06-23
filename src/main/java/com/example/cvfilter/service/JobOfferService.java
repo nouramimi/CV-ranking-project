@@ -6,6 +6,7 @@ import com.example.cvfilter.dao.entity.Company;
 import com.example.cvfilter.dao.entity.JobOffer;
 import com.example.cvfilter.dto.JobOfferDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
+import com.example.cvfilter.dto.PaginatedResponse;
 import com.example.cvfilter.exception.InvalidJobOfferException;
 import com.example.cvfilter.exception.JobOfferNotFoundException;
 import com.example.cvfilter.exception.UnauthorizedAccessException;
@@ -48,6 +49,44 @@ public class JobOfferService implements JobOfferServiceInterface {
     }
 
     @Override
+    public PaginatedResponse<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(
+            String email, Boolean active, int page, int size) {
+
+        List<JobOfferDTO> offers = Boolean.TRUE.equals(active) ?
+                getActiveOffers(email) : getAll(email);
+
+        int totalElements = offers.size();
+        int totalPages = (int) Math.ceil((double) totalElements / size);
+
+        int fromIndex = page * size;
+        int toIndex = Math.min(fromIndex + size, totalElements);
+
+        if (fromIndex > totalElements) {
+            fromIndex = totalElements;
+        }
+
+        List<JobOfferDTO> paginatedOffers = offers.subList(fromIndex, toIndex);
+
+        List<JobOfferWithCompanyDTO> content = paginatedOffers.stream()
+                .map(jobOfferDTO -> {
+                    JobOffer jobOffer = convertDtoToEntity(jobOfferDTO);
+                    Company company = jobOffer.getCompanyId() != null ?
+                            companyDao.findById(jobOffer.getCompanyId()).orElse(null) :
+                            null;
+                    return new JobOfferWithCompanyDTO(jobOffer, company);
+                })
+                .collect(Collectors.toList());
+
+        return new PaginatedResponse<>(
+                content,
+                page,
+                size,
+                totalElements,
+                totalPages
+        );
+    }
+
+    /*@Override
     public List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active) {
         List<JobOfferDTO> offers;
         if (Boolean.TRUE.equals(active)) {
@@ -65,7 +104,7 @@ public class JobOfferService implements JobOfferServiceInterface {
                     return new JobOfferWithCompanyDTO(jobOffer, company);
                 })
                 .collect(Collectors.toList());
-    }
+    }*/
 
     private JobOffer convertDtoToEntity(JobOfferDTO dto) {
         JobOffer jobOffer = new JobOffer();

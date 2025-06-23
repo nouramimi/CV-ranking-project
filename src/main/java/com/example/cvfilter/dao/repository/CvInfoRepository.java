@@ -1,6 +1,8 @@
 package com.example.cvfilter.dao.repository;
 
 import com.example.cvfilter.dao.entity.CvInfo;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -47,4 +49,11 @@ public interface CvInfoRepository extends JpaRepository<CvInfo, Long> {
 
     @Query("SELECT ci FROM CvInfo ci WHERE ci.jobOfferId = :jobOfferId")
     List<CvInfo> findByJobOfferIdWithAllFields(@Param("jobOfferId") Long jobOfferId);
+
+    @Query("SELECT c FROM CvInfo c WHERE c.jobOfferId = :jobOfferId")
+    Page<CvInfo> findByJobOfferIdWithAllFields(@Param("jobOfferId") Long jobOfferId, Pageable pageable);
+
+    // Paginated version for distinct job offers by user
+    @Query("SELECT DISTINCT c.jobOfferId FROM CvInfo c WHERE c.userId = :userId")
+    Page<Long> findDistinctJobOfferIdsByUserId(@Param("userId") Long userId, Pageable pageable);
 }
