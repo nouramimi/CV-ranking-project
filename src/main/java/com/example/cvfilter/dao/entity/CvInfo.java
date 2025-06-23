@@ -41,6 +41,9 @@ public class CvInfo {
     @Column(name = "extracted_at")
     private LocalDateTime extractedAt;
 
+    @Enumerated(EnumType.STRING)
+    private CvStatus status;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
@@ -198,4 +201,14 @@ public class CvInfo {
     public void setHighestDegree(String highestDegree) {
         this.highestDegree = highestDegree;
     }
+
+    public CvStatus getStatus() {
+        return status;
+    }
+
+    public void setStatus(CvStatus status) {
+        this.status = status;
+    }
+
+
 }

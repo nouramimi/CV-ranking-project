@@ -1,6 +1,7 @@
 package com.example.cvfilter.service.impl;
 
 import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -23,4 +24,6 @@ public interface CvUploadServiceInterface {
     List<CvInfo> searchCandidatesByEducation(Long jobOfferId, String education);
     void updateCvInfo(Long cvInfoId, String name, String email, String phone,
                       String description, String skills, String experience, String education);
+    List<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId);
+
 }

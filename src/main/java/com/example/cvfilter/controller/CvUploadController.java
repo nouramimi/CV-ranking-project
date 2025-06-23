@@ -1,10 +1,12 @@
 package com.example.cvfilter.controller;
 
 import com.example.cvfilter.config.JwtUtils;
+import com.example.cvfilter.dao.UserDao;
 import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.dao.entity.User;
 import com.example.cvfilter.dto.CvInfoDTO;
-import com.example.cvfilter.service.AuthorizationService;
-import com.example.cvfilter.service.CvUploadService;
+import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
+import com.example.cvfilter.exception.UserNotFoundException;
 import com.example.cvfilter.service.impl.AuthorizationServiceInterface;
 import com.example.cvfilter.service.impl.CvUploadServiceInterface;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,13 +25,14 @@ public class CvUploadController {
     private final CvUploadServiceInterface cvUploadService;
     private final JwtUtils jwtUtils;
     private final AuthorizationServiceInterface authorizationService;
+    private final UserDao userDao;
 
-    public CvUploadController(CvUploadServiceInterface cvUploadService,
-                              JwtUtils jwtUtils,
-                              AuthorizationServiceInterface authorizationService) {
+
+    public CvUploadController(CvUploadServiceInterface cvUploadService, JwtUtils jwtUtils, AuthorizationServiceInterface authorizationService, UserDao userDao) {
         this.cvUploadService = cvUploadService;
         this.jwtUtils = jwtUtils;
         this.authorizationService = authorizationService;
+        this.userDao = userDao;
     }
 
     @PostMapping("/upload/{jobId}")
@@ -66,10 +69,21 @@ public class CvUploadController {
     }
 
     @GetMapping("/user/applications")
-    public ResponseEntity<List<Long>> getUserApplications(HttpServletRequest request) {
-        String email = extractEmailFromRequest(request);
-        Long userId = authorizationService.getUserIdByEmail(email);
-        return ResponseEntity.ok(cvUploadService.getJobOffersForUser(userId));
+    public ResponseEntity<List<JobOfferWithCompanyDTO>> getUserJobApplications(
+            @RequestParam(required = false) Long userId,
+            HttpServletRequest request) {
+
+        // Get user ID from authentication if not provided
+        if (userId == null) {
+            String email = extractEmailFromRequest(request);
+            User user = userDao.findByEmail(email)
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
+            userId = user.getId();
+        }
+
+        List<JobOfferWithCompanyDTO> jobOffers =
+                cvUploadService.getJobOffersWithCompanyDetailsForUser(userId);
+        return ResponseEntity.ok(jobOffers);
     }
 
     @GetMapping("/user/has-applied/{jobId}")

@@ -10,15 +10,18 @@ public class CvInfoDTO {
     private String cvPath;
     private String description;
     private String education;
-    private String email;
+    private String email;  // From CV extraction
     private String experience;
     private LocalDateTime extractedAt;
     private Long jobOfferId;
-    private String name;
+    private String name;  // From CV extraction
     private String phone;
     private String skills;
     private Long userId;
     private String highestDegree;
+
+    private String userUsername;   // From User entity
+    private String userEmail;      // From User entity
 
     public CvInfoDTO(CvInfo cvInfo) {
         this.id = cvInfo.getId();
@@ -35,6 +38,11 @@ public class CvInfoDTO {
         this.skills = cvInfo.getSkills();
         this.userId = cvInfo.getUserId();
         this.highestDegree=cvInfo.getHighestDegree();
+
+        if (cvInfo.getUser() != null) {
+            this.userUsername = cvInfo.getUser().getUsername();
+            this.userEmail = cvInfo.getUser().getEmail();
+        }
     }
 
     public Long getId() {
@@ -91,5 +99,13 @@ public class CvInfoDTO {
 
     public String getHighestDegree() {
         return highestDegree;
+    }
+
+    public String getUserUsername() {
+        return userUsername;
+    }
+
+    public String getUserEmail() {
+        return userEmail;
     }
 }

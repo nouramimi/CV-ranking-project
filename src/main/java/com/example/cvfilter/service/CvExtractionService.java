@@ -1,6 +1,8 @@
 package com.example.cvfilter.service;
 
+import com.example.cvfilter.dao.CvInfoDao;
 import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.dao.entity.CvStatus;
 import com.example.cvfilter.service.impl.CvExtractionServiceInterface;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
@@ -13,12 +15,19 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Service
 public class CvExtractionService implements CvExtractionServiceInterface {
+
+    private final CvInfoDao cvInfoDao;
+
+    public CvExtractionService(CvInfoDao cvInfoDao) {
+        this.cvInfoDao = cvInfoDao;
+    }
 
     private static final String[] COMMON_SKILLS = {
             "java", "python", "javascript", "html", "css", "sql", "spring", "react",
@@ -27,6 +36,16 @@ public class CvExtractionService implements CvExtractionServiceInterface {
             "aws", "azure", "gcp", "microservices", "rest", "api", "json", "xml",
             "junit", "selenium", "agile", "scrum", "kanban"
     };
+
+    @Override
+    public CvInfo extractAndSaveCvInfo(File cvFile, Long userId, Long companyId, Long jobOfferId) throws IOException {
+        CvInfo cvInfo = extractCvInfo(cvFile, userId, companyId, jobOfferId);
+
+        cvInfo.setExtractedAt(LocalDateTime.now());
+        cvInfo.setStatus(CvStatus.PROCESSED);
+
+        return cvInfoDao.save(cvInfo);
+    }
 
     public CvInfo extractCvInfo(File cvFile, Long userId, Long companyId, Long jobOfferId) throws IOException {
         CvInfo cvInfo = new CvInfo(userId, jobOfferId, companyId, cvFile.getAbsolutePath());
