@@ -16,7 +16,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private static final Logger logger = LoggerFactory.getLogger(SecurityConfig.class);
-
+    private static final String[] swaggerWhiteListApi = {
+            "api/v1/auth/**",
+            "v3/api-docs/**",
+            "v3/apis-docs.yaml",
+            "/swagger-ui/**",
+            "swagger-ui.html"
+    };
     private final JwtAuthFilter jwtAuthFilter;
 
     public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
@@ -29,15 +35,16 @@ public class SecurityConfig {
 
         return http
                 .csrf(csrf -> csrf.disable())
-                .httpBasic(Customizer.withDefaults())
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> {
                     logger.debug("Configuring authorization rules");
                     auth
-                            .requestMatchers("/api/auth/**").permitAll()
-                            .requestMatchers("/error", "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                            .requestMatchers("/api/auth/**","/api/job-offers/getAll").permitAll()
+                            .requestMatchers("/error").permitAll()
+                            .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                            .requestMatchers(swaggerWhiteListApi).permitAll()
 
-                            .requestMatchers("/api/cv/upload", "/api/job-offers/getAll", "/api/job-offers/getById/**").hasRole("USER")
+                            .requestMatchers("/api/cv/upload", "/api/job-offers/getById/**").hasRole("USER")
                             .requestMatchers("/api/job-offers/**").hasAnyRole("ADMIN", "HR_MANAGER")
                             .requestMatchers("/api/cv-ranking/**", "/api/cv/**").hasAnyRole("ADMIN", "HR_MANAGER")
                             .requestMatchers("/api/companies/**", "/api/hr-managers/**").hasRole("ADMIN")

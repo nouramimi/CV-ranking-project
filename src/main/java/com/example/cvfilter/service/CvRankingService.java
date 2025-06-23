@@ -3,6 +3,7 @@ package com.example.cvfilter.service;
 import com.example.cvfilter.dao.entity.CvInfo;
 import com.example.cvfilter.dao.entity.CvRanking;
 import com.example.cvfilter.dao.entity.JobOffer;
+import com.example.cvfilter.dto.JobOfferDTO;
 import com.example.cvfilter.exception.CvUploadException;
 import com.example.cvfilter.exception.InvalidJobOfferException;
 import com.example.cvfilter.exception.JobOfferNotFoundException;
@@ -50,7 +51,7 @@ public class CvRankingService implements CvRankingServiceInterface {
 
         System.out.println("getBestCvsForJob called for job " + jobOfferId + " by " + username);
 
-        JobOffer jobOffer = jobOfferService.getById(jobOfferId, username)
+        JobOfferDTO jobOffer = jobOfferService.getById(jobOfferId, username)
                 .orElseThrow(() -> new JobOfferNotFoundException("Job offer not found: " + jobOfferId));
 
         System.out.println("Checking access for company " + jobOffer.getCompanyId());
@@ -86,7 +87,7 @@ public class CvRankingService implements CvRankingServiceInterface {
             throw new IllegalArgumentException("topN must be between 1 and 20");
         }
 
-        JobOffer jobOffer = jobOfferService.getById(jobOfferId, username)
+        JobOfferDTO jobOffer = jobOfferService.getById(jobOfferId, username)
                 .orElseThrow(() -> new JobOfferNotFoundException("Job offer not found: " + jobOfferId));
 
         authorizationService.checkCompanyAccess(username, jobOffer.getCompanyId());
@@ -145,7 +146,7 @@ public class CvRankingService implements CvRankingServiceInterface {
     }
     @Override
     public CvRanking getRankingDetails(Long jobOfferId, String username) {
-        JobOffer jobOffer = jobOfferService.getById(jobOfferId, username)
+        JobOfferDTO jobOffer = jobOfferService.getById(jobOfferId, username)
                 .orElseThrow(() -> new JobOfferNotFoundException("Job offer not found: " + jobOfferId));
         authorizationService.checkCompanyAccess(username, jobOffer.getCompanyId());
 

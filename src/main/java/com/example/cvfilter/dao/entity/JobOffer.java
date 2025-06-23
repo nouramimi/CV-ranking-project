@@ -41,6 +41,9 @@ public class JobOffer {
 
     private Boolean isActive;
 
+    @Enumerated(EnumType.STRING)
+    private EducationLevel requiredDegree;
+
     @ElementCollection
     @CollectionTable(name = "job_offer_skills", joinColumns = @JoinColumn(name = "job_offer_id"))
     @Column(name = "skill")
@@ -136,6 +139,22 @@ public class JobOffer {
     public void setCvInfos(List<CvInfo> cvInfos) {
         this.cvInfos = cvInfos;
     }
+    public EducationLevel getRequiredDegree() {
+        return requiredDegree;
+    }
+
+    public void setRequiredDegree(EducationLevel requiredDegree) {
+        this.requiredDegree = requiredDegree;
+    }
+
+    public enum EducationLevel {
+        HIGH_SCHOOL,
+        ASSOCIATE,
+        BACHELOR,
+        MASTER,
+        PHD,
+        NONE_SPECIFIED
+    }
 
 
 
@@ -148,12 +167,4 @@ public class JobOffer {
         VOLUNTEER
     }
 
-    public enum EducationLevel {
-        HIGH_SCHOOL,
-        ASSOCIATE,
-        BACHELOR,
-        MASTER,
-        PHD,
-        NONE_SPECIFIED
-    }
 }

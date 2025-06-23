@@ -38,7 +38,7 @@ except LookupError:
 class CVDataProcessor:
     """
     A comprehensive CV data processor that standardizes and enriches CV information.
-    Now with PostgreSQL integration for job offer requirements.
+    Now with PostgreSQL integration for job offer requirements including education level.
     """
 
     def __init__(self, db_config=None):
@@ -51,6 +51,16 @@ class CVDataProcessor:
 
         self.lemmatizer = WordNetLemmatizer()
         self.stop_words = set(stopwords.words('english'))
+
+        # Education level hierarchy
+        self.education_hierarchy = {
+            'PHD': 5,
+            'MASTER': 4,
+            'BACHELOR': 3,
+            'ASSOCIATE': 2,
+            'HIGH_SCHOOL': 1,
+            'NONE_SPECIFIED': 0
+        }
 
         # Skills mapping dictionary
         self.skills_mapping = {
@@ -78,8 +88,8 @@ class CVDataProcessor:
             df = pd.read_csv(csv_file_path)
             print(f"Loaded {len(df)} records from {csv_file_path}")
             
-            # Check for required columns - adjust based on your actual CSV structure
-            required_columns = ['job_offer_id']  # Only require the essential column
+            # Check for required columns
+            required_columns = ['job_offer_id']
             for col in required_columns:
                 if col not in df.columns:
                     raise ValueError(f"Input CSV is missing required column: {col}")
@@ -166,7 +176,7 @@ class CVDataProcessor:
 
         experience_text = str(experience_text)
 
-        # Direct year patterns - more comprehensive
+        # Direct year patterns
         direct_patterns = [
             r'(\d+)\s*(?:years?|yrs?)\s*(?:of\s*)?(?:experience|exp)',
             r'(\d+)\+?\s*(?:years?|yrs?)',
@@ -182,12 +192,11 @@ class CVDataProcessor:
                 print(f"  Found direct experience pattern: {years} years")
                 return years
 
-        # Look for employment periods and calculate
-        # Patterns like "2020-2023", "Jan 2020 - Dec 2023", etc.
+        # Look for employment periods
         date_patterns = [
-            r'(\d{4})\s*[-–—]\s*(\d{4})',  # 2020-2023
-            r'(\d{4})\s*[-–—]\s*(?:present|now|current)',  # 2020-present
-            r'(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})\s*[-–—]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})',  # Jan 2020 - Dec 2023
+            r'(\d{4})\s*[-–—]\s*(\d{4})',
+            r'(\d{4})\s*[-–—]\s*(?:present|now|current)',
+            r'(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})\s*[-–—]\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s*(\d{4})',
         ]
 
         total_years = 0.0
@@ -208,14 +217,12 @@ class CVDataProcessor:
                     total_years += years_diff
                     print(f"  Found date range: {start_year}-{end_year} = {years_diff} years")
 
-        # If we found date ranges, use the total
         if total_years > 0:
             return total_years
 
-        # Fallback: look for any numbers that might indicate experience
+        # Fallback: look for any numbers
         numbers = re.findall(r'\b(\d+)\b', experience_text)
         if numbers:
-            # Take the first reasonable number (between 0 and 50)
             for num_str in numbers:
                 num = int(num_str)
                 if 0 <= num <= 50:
@@ -229,28 +236,60 @@ class CVDataProcessor:
         """Standardize and clean names."""
         def clean_name(name):
             if pd.isna(name) or not name.strip():
-                return name  # Return original if empty
+                return name
 
             name = str(name)
             name = re.sub(r'\s+', ' ', name.strip())
             name = re.sub(r'\b(cv|resume|curriculum|vitae|contact)\b', '', name, flags=re.IGNORECASE)
             
             name_parts = [part.title() for part in name.split() if len(part) > 1 and part.isalpha()]
-            return ' '.join(name_parts) if name_parts else name  # Return original if no valid parts
+            return ' '.join(name_parts) if name_parts else name
 
-        if 'name_cleaned' not in df.columns and 'name' in df.columns:
+        if 'name' in df.columns and 'name_cleaned' not in df.columns:
             df['name_cleaned'] = df['name'].apply(clean_name)
         return df
 
+    def extract_education_level(self, text: str) -> str:
+        """Extract highest education level from text."""
+        if pd.isna(text) or not text.strip():
+            return "NONE_SPECIFIED"
+
+        text = str(text).lower()
+        
+        education_mapping = {
+            'phd': 'PHD',
+            'doctorate': 'PHD',
+            'master': 'MASTER',
+            'mba': 'MASTER',
+            'msc': 'MASTER',
+            'm.sc': 'MASTER',
+            'bachelor': 'BACHELOR',
+            'bs': 'BACHELOR',
+            'b.sc': 'BACHELOR',
+            'undergraduate': 'BACHELOR',
+            'associate': 'ASSOCIATE',
+            'diploma': 'ASSOCIATE',
+            'certificate': 'ASSOCIATE',
+            'high school': 'HIGH_SCHOOL',
+            'secondary': 'HIGH_SCHOOL'
+        }
+
+        # Check for each education level
+        for keyword, level in education_mapping.items():
+            if keyword in text:
+                return level
+
+        return "NONE_SPECIFIED"
+
     def fetch_job_requirements(self, job_offer_id: str) -> Dict[str, Any]:
-        """Fetch job requirements from PostgreSQL database."""
+        """Fetch job requirements from PostgreSQL database including education level."""
         if not self.db_config:
             print(f"No database configuration provided for job offer {job_offer_id}")
             return None
 
-        # Query for main job offer info
+        # Query for main job offer info including required_degree
         main_query = sql.SQL("""
-            SELECT years_of_experience_required
+            SELECT years_of_experience_required, required_degree
             FROM job_offer
             WHERE id = %s
         """)
@@ -286,23 +325,97 @@ class CVDataProcessor:
 
             requirements = {
                 'min_experience': main_result[0],
+                'required_degree': main_result[1],
                 'required_skills': skills
             }
             
-            print(f"Job offer {job_offer_id} requirements: min_exp={requirements['min_experience']}, skills={len(skills)}")
+            print(f"Job offer {job_offer_id} requirements: min_exp={requirements['min_experience']}, "
+                  f"degree={requirements['required_degree']}, skills={len(skills)}")
             return requirements
             
         except Exception as e:
             print(f"Error fetching job requirements for {job_offer_id}: {e}")
             return None
 
+    def _check_experience(self, cv_row, requirements, apply_strict_filters):
+        """Check if CV meets experience requirements."""
+        cv_experience = cv_row.get('total_experience_years', 0)
+        min_exp_required = requirements.get('min_experience')
+        
+        if min_exp_required is None or min_exp_required <= 0:
+            print(f"  No experience requirement")
+            return True
+        
+        if apply_strict_filters:
+            if cv_experience < min_exp_required:
+                print(f"  Experience filter FAILED: CV has {cv_experience} years, need {min_exp_required}")
+                return False
+            print(f"  Experience filter PASSED: CV has {cv_experience} years, need {min_exp_required}")
+            return True
+        else:
+            tolerance = max(1, min_exp_required * 0.3)
+            if cv_experience < (min_exp_required - tolerance):
+                print(f"  Experience filter FAILED: CV has {cv_experience} years, need {min_exp_required} (tolerance: {tolerance})")
+                return False
+            print(f"  Experience filter PASSED: CV has {cv_experience} years, need {min_exp_required} (tolerance: {tolerance})")
+            return True
+
+    def _check_skills(self, cv_row, requirements, apply_strict_filters):
+        """Check if CV meets skills requirements."""
+        required_skills = requirements.get('required_skills', [])
+        if not required_skills:
+            print(f"  No skills requirement")
+            return True
+        
+        cv_skills_text = str(cv_row.get('skills_final', ''))
+        if not cv_skills_text or cv_skills_text == 'nan':
+            cv_skills_text = str(cv_row.get('skills', ''))
+        
+        cv_skills = {s.strip().lower() for s in cv_skills_text.split(',') if s.strip()}
+        
+        matched_skills = []
+        for required_skill in required_skills:
+            for cv_skill in cv_skills:
+                if fuzz.partial_ratio(required_skill.lower(), cv_skill.lower()) > 70:
+                    matched_skills.append(required_skill)
+                    break
+        
+        if apply_strict_filters:
+            required_match_count = len(required_skills)
+        else:
+            required_match_count = max(1, len(required_skills) // 2)
+        
+        if len(matched_skills) < required_match_count:
+            print(f"  Skills filter FAILED: Found {len(matched_skills)}/{len(required_skills)} required skills (need {required_match_count})")
+            return False
+        
+        print(f"  Skills filter PASSED: Found {len(matched_skills)}/{len(required_skills)} required skills (need {required_match_count})")
+        return True
+
+    def _check_education(self, cv_row, requirements):
+        """Check if CV meets education requirements."""
+        required_degree = requirements.get('required_degree')
+        
+        if not required_degree or required_degree == 'NONE_SPECIFIED':
+            print(f"  No education requirement")
+            return True
+        
+        cv_education = cv_row.get('education_level', 'NONE_SPECIFIED')
+        
+        # Get numeric values for comparison
+        req_level = self.education_hierarchy.get(required_degree, 0)
+        cv_level = self.education_hierarchy.get(cv_education, 0)
+        
+        if cv_level < req_level:
+            print(f"  Education filter FAILED: CV has {cv_education}, need {required_degree}")
+            return False
+        
+        print(f"  Education filter PASSED: CV has {cv_education}, meets {required_degree}")
+        return True
+
     def hard_filter_cvs(self, processed_df: pd.DataFrame, apply_strict_filters: bool = False) -> pd.DataFrame:
         """
-        Filter CVs based on job requirements from PostgreSQL.
-        
-        Args:
-            processed_df: DataFrame with processed CV data
-            apply_strict_filters: If True, apply strict filtering. If False, use lenient filtering.
+        Filter CVs based on job requirements including education level.
         """
         print(f"Starting hard filtering on {len(processed_df)} CVs...")
         print(f"Strict filtering: {apply_strict_filters}")
@@ -319,69 +432,13 @@ class CVDataProcessor:
                 filtered_rows.append(cv_row)
                 continue
             
-            # Check experience requirement
-            cv_experience = cv_row.get('total_experience_years', 0)
-            min_exp_required = requirements.get('min_experience')
-            
-            experience_passes = True
-            if min_exp_required is not None and min_exp_required > 0:
-                if apply_strict_filters:
-                    # Strict: must meet exact requirement
-                    if cv_experience < min_exp_required:
-                        print(f"  Experience filter FAILED: CV has {cv_experience} years, need {min_exp_required}")
-                        experience_passes = False
-                    else:
-                        print(f"  Experience filter PASSED: CV has {cv_experience} years, need {min_exp_required}")
-                else:
-                    # Lenient: allow 1-2 years less than required, or any CV with some experience
-                    tolerance = max(1, min_exp_required * 0.3)  # 30% tolerance or minimum 1 year
-                    if cv_experience < (min_exp_required - tolerance):
-                        print(f"  Experience filter FAILED: CV has {cv_experience} years, need {min_exp_required} (tolerance: {tolerance})")
-                        experience_passes = False
-                    else:
-                        print(f"  Experience filter PASSED: CV has {cv_experience} years, need {min_exp_required} (tolerance: {tolerance})")
-            else:
-                print(f"  No experience requirement")
-            
-            # Check skills requirement
-            required_skills = requirements.get('required_skills', [])
-            skills_passes = True
-            
-            if required_skills:
-                cv_skills_text = str(cv_row.get('skills_final', ''))
-                if not cv_skills_text or cv_skills_text == 'nan':
-                    cv_skills_text = str(cv_row.get('skills', ''))
-                
-                cv_skills = {s.strip().lower() for s in cv_skills_text.split(',') if s.strip()}
-                
-                # Use fuzzy matching for skills
-                matched_skills = []
-                for required_skill in required_skills:
-                    for cv_skill in cv_skills:
-                        if fuzz.partial_ratio(required_skill.lower(), cv_skill.lower()) > 70:  # Lowered threshold
-                            matched_skills.append(required_skill)
-                            break
-                
-                if apply_strict_filters:
-                    # Strict: must have all required skills
-                    required_match_count = len(required_skills)
-                else:
-                    # Lenient: must have at least 50% of required skills, minimum 1
-                    required_match_count = max(1, len(required_skills) // 2)
-                
-                if len(matched_skills) < required_match_count:
-                    print(f"  Skills filter FAILED: Found {len(matched_skills)}/{len(required_skills)} required skills (need {required_match_count})")
-                    print(f"    Required: {required_skills}")
-                    print(f"    CV has: {list(cv_skills)}")
-                    print(f"    Matched: {matched_skills}")
-                    skills_passes = False
-                else:
-                    print(f"  Skills filter PASSED: Found {len(matched_skills)}/{len(required_skills)} required skills (need {required_match_count})")
-            else:
-                print(f"  No skills requirement")
+            # Check all requirements
+            experience_passes = self._check_experience(cv_row, requirements, apply_strict_filters)
+            skills_passes = self._check_skills(cv_row, requirements, apply_strict_filters)
+            education_passes = self._check_education(cv_row, requirements)
             
             # Include CV if it passes all filters
-            if experience_passes and skills_passes:
+            if experience_passes and skills_passes and education_passes:
                 print(f"  CV ACCEPTED")
                 filtered_rows.append(cv_row)
             else:
@@ -392,21 +449,21 @@ class CVDataProcessor:
         return result_df
 
     def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Process the entire dataframe."""
+        """Process the entire dataframe including education level."""
         print("Starting data processing...")
         processed_df = df.copy()
 
-        # Process names if column exists and not already processed
+        # Process names
         if 'name' in processed_df.columns and 'name_cleaned' not in processed_df.columns:
             print("Processing names...")
             processed_df = self.process_names(processed_df)
 
-        # Standardize skills if column exists and not already processed
+        # Standardize skills
         if 'skills' in processed_df.columns and 'skills_standardized' not in processed_df.columns:
             print("Standardizing skills...")
             processed_df['skills_standardized'] = processed_df['skills'].apply(self.standardize_skills)
 
-        # Remove duplicate skills if not already done
+        # Remove duplicate skills
         if 'skills_standardized' in processed_df.columns and 'skills_final' not in processed_df.columns:
             print("Removing duplicate skills...")
             processed_df['skills_final'] = processed_df['skills_standardized'].apply(self.remove_duplicate_skills)
@@ -414,12 +471,12 @@ class CVDataProcessor:
             print("Processing skills directly to final...")
             processed_df['skills_final'] = processed_df['skills'].apply(self.remove_duplicate_skills)
 
-        # Normalize experience dates if column exists and not already processed
+        # Normalize experience dates
         if 'experience' in processed_df.columns and 'experience_normalized' not in processed_df.columns:
             print("Normalizing experience dates...")
             processed_df['experience_normalized'] = processed_df['experience'].apply(self.normalize_date_ranges)
 
-        # Compute experience years if not already done
+        # Compute experience years
         if 'total_experience_years' not in processed_df.columns:
             print("Computing total experience years...")
             if 'experience_normalized' in processed_df.columns:
@@ -433,6 +490,11 @@ class CVDataProcessor:
             else:
                 processed_df['total_experience_years'] = 0.0
 
+        # Extract education level
+        if 'education' in processed_df.columns and 'education_level' not in processed_df.columns:
+            print("Extracting education levels...")
+            processed_df['education_level'] = processed_df['education'].apply(self.extract_education_level)
+
         processed_df['processed_at'] = datetime.now().isoformat()
         print("Data processing completed!")
         return processed_df
@@ -440,7 +502,6 @@ class CVDataProcessor:
     def save_processed_data(self, df: pd.DataFrame, output_file: str):
         """Save the processed data to CSV."""
         try:
-            # Add timestamp to filename to avoid permission issues
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             base_name = output_file.split('.')[0]
             timestamped_file = f"{base_name}_{timestamp}.csv"
@@ -448,7 +509,6 @@ class CVDataProcessor:
             df.to_csv(timestamped_file, index=False, encoding='utf-8')
             print(f"Processed data saved to {timestamped_file}")
         except PermissionError:
-            # Try alternative filename if original is locked
             alt_file = f"shortlisted_cvs_backup_{timestamp}.csv"
             try:
                 df.to_csv(alt_file, index=False, encoding='utf-8')
@@ -461,7 +521,7 @@ class CVDataProcessor:
             raise
 
     def generate_report(self, original_df: pd.DataFrame, processed_df: pd.DataFrame):
-        """Generate a processing report."""
+        """Generate a processing report including education statistics."""
         print("\n" + "="*50)
         print("CV DATA PROCESSING REPORT")
         print("="*50)
@@ -475,12 +535,7 @@ class CVDataProcessor:
             return
         
         # Name processing stats
-        name_col = None
-        if 'name_cleaned' in processed_df.columns:
-            name_col = 'name_cleaned'
-        elif 'name' in processed_df.columns:
-            name_col = 'name'
-            
+        name_col = 'name_cleaned' if 'name_cleaned' in processed_df.columns else 'name' if 'name' in processed_df.columns else None
         if name_col:
             name_count = len(processed_df[processed_df[name_col].notna() & (processed_df[name_col].str.len() > 0)])
             print(f"Records with names: {name_count}")
@@ -488,12 +543,7 @@ class CVDataProcessor:
             print("No name data available")
                 
         # Skills processing stats
-        skills_col = None
-        if 'skills_final' in processed_df.columns:
-            skills_col = 'skills_final'
-        elif 'skills' in processed_df.columns:
-            skills_col = 'skills'
-            
+        skills_col = 'skills_final' if 'skills_final' in processed_df.columns else 'skills' if 'skills' in processed_df.columns else None
         if skills_col:
             skills_count = len(processed_df[processed_df[skills_col].notna() & (processed_df[skills_col].str.len() > 0)])
             print(f"Records with skills: {skills_count}")
@@ -506,6 +556,15 @@ class CVDataProcessor:
             print(f"Records with experience years calculated: {exp_count}")
         else:
             print("No experience data available")
+
+        # Education stats
+        if 'education_level' in processed_df.columns:
+            education_counts = processed_df['education_level'].value_counts()
+            print("\nEducation level distribution:")
+            for level, count in education_counts.items():
+                print(f"  {level}: {count}")
+        else:
+            print("\nNo education level data available")
 
         # Skills analysis
         if skills_col:
@@ -521,8 +580,6 @@ class CVDataProcessor:
                     print(f"  {skill}: {count}")
             else:
                 print("\nNo skills data available for analysis")
-        else:
-            print("\nNo skills column available for analysis")
 
         # Experience analysis
         if 'total_experience_years' in processed_df.columns:
@@ -533,8 +590,6 @@ class CVDataProcessor:
             print(f"  Max experience: {exp_stats['max']:.1f} years")
             print(f"  Min experience: {exp_stats['min']:.1f} years")
             print(f"  Records with 0 experience: {len(exp_data[exp_data == 0])}")
-        else:
-            print("\nNo experience data available for statistics")
 
 def main():
     # PostgreSQL configuration
@@ -572,13 +627,14 @@ def main():
             print("NO CVS PASSED LENIENT FILTERING - DEBUGGING INFO")
             print("="*50)
             
-            # Show sample experience data
-            print("\nSample experience data:")
+            # Show sample data
+            print("\nSample data:")
             for idx, row in processed_df.head(5).iterrows():
                 print(f"CV {idx+1}:")
                 print(f"  Original experience: {str(row.get('experience', 'N/A'))[:100]}...")
                 print(f"  Calculated years: {row.get('total_experience_years', 0)}")
                 print(f"  Skills: {str(row.get('skills_final', row.get('skills', 'N/A')))[:100]}...")
+                print(f"  Education: {row.get('education_level', 'N/A')}")
                 print()
             
             # Try without any filtering for debugging

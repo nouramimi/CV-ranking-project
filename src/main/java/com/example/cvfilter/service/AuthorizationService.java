@@ -1,6 +1,7 @@
 package com.example.cvfilter.service;
 
 import com.example.cvfilter.dao.UserDao;
+import com.example.cvfilter.dao.entity.Admin;
 import com.example.cvfilter.dao.entity.HRManager;
 import com.example.cvfilter.dao.entity.Role;
 import com.example.cvfilter.dao.entity.User;
@@ -46,7 +47,8 @@ public class AuthorizationService implements AuthorizationServiceInterface {
                 .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
 
         if (user.getRole() == Role.ADMIN) {
-            return null;
+            Admin admin = (Admin) user;
+            return admin.getCompany() != null ? admin.getCompany().getId() : null;
         }
 
         if (user.getRole() == Role.HR_MANAGER) {

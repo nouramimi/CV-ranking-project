@@ -3,6 +3,7 @@ package com.example.cvfilter.controller;
 import com.example.cvfilter.config.JwtUtils;
 import com.example.cvfilter.dao.entity.Company;
 import com.example.cvfilter.dao.entity.JobOffer;
+import com.example.cvfilter.dto.JobOfferDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
 import com.example.cvfilter.exception.JobOfferNotFoundException;
 import com.example.cvfilter.service.impl.JobOfferServiceInterface;
@@ -25,9 +26,9 @@ public class JobOfferController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<JobOffer> create(@RequestBody JobOffer offer, HttpServletRequest request) {
-        String email = extractEmailFromRequest(request); // Changed from username to email
-        JobOffer createdOffer = service.create(offer, email); // Changed parameter
+    public ResponseEntity<JobOfferDTO> create(@RequestBody JobOffer offer, HttpServletRequest request) {
+        String email = extractEmailFromRequest(request);
+        JobOfferDTO createdOffer = service.create(offer, email);
         return ResponseEntity.ok(createdOffer);
     }
 
@@ -41,29 +42,19 @@ public class JobOfferController {
         return ResponseEntity.ok(response);
     }
 
-    /*@GetMapping("/getAll")
-    public ResponseEntity<List<JobOffer>> getAll(@RequestParam(required = false) Boolean active,
-                                                 HttpServletRequest request) {
-        String email = extractEmailFromRequest(request); // Changed
-
-        if (Boolean.TRUE.equals(active)) {
-            return ResponseEntity.ok(service.getActiveOffers(email)); // Changed
-        }
-        return ResponseEntity.ok(service.getAll(email)); // Changed
-    }*/
 
     @GetMapping("/getById/{id}")
-    public ResponseEntity<JobOfferWithCompanyDTO> getById(@PathVariable Long id, HttpServletRequest request) {
+    public ResponseEntity<JobOfferDTO> getById(@PathVariable Long id, HttpServletRequest request) {
         String email = extractEmailFromRequest(request);
-        return service.getByIdWithCompany(id, email)
+        return service.getById(id, email)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new JobOfferNotFoundException("Job offer not found with ID: " + id));
     }
 
     @PutMapping("/update/{id}")
-    public ResponseEntity<JobOffer> update(@PathVariable Long id,
-                                           @RequestBody JobOffer updated,
-                                           HttpServletRequest request) {
+    public ResponseEntity<JobOfferDTO> update(@PathVariable Long id,
+                                              @RequestBody JobOffer updated,
+                                              HttpServletRequest request) {
         String email = extractEmailFromRequest(request);
         return service.update(id, updated, email)
                 .map(ResponseEntity::ok)

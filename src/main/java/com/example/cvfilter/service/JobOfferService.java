@@ -4,6 +4,7 @@ import com.example.cvfilter.dao.CompanyDao;
 import com.example.cvfilter.dao.JobOfferDao;
 import com.example.cvfilter.dao.entity.Company;
 import com.example.cvfilter.dao.entity.JobOffer;
+import com.example.cvfilter.dto.JobOfferDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
 import com.example.cvfilter.exception.InvalidJobOfferException;
 import com.example.cvfilter.exception.JobOfferNotFoundException;
@@ -35,19 +36,20 @@ public class JobOfferService implements JobOfferServiceInterface {
     }
 
     @Override
-    public JobOffer create(JobOffer offer, String email) {
+    public JobOfferDTO create(JobOffer offer, String email) {
         Long userCompanyId = authorizationService.getUserCompanyId(email);
         if (userCompanyId != null) {
             offer.setCompanyId(userCompanyId);
         }
 
         validateJobOffer(offer);
-        return jobOfferDao.save(offer);
+        JobOffer savedOffer = jobOfferDao.save(offer);
+        return new JobOfferDTO(savedOffer);
     }
 
     @Override
     public List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active) {
-        List<JobOffer> offers;
+        List<JobOfferDTO> offers;
         if (Boolean.TRUE.equals(active)) {
             offers = getActiveOffers(email);
         } else {
@@ -55,7 +57,8 @@ public class JobOfferService implements JobOfferServiceInterface {
         }
 
         return offers.stream()
-                .map(jobOffer -> {
+                .map(jobOfferDTO -> {
+                    JobOffer jobOffer = convertDtoToEntity(jobOfferDTO);
                     Company company = jobOffer.getCompanyId() != null ?
                             companyDao.findById(jobOffer.getCompanyId()).orElse(null) :
                             null;
@@ -64,37 +67,69 @@ public class JobOfferService implements JobOfferServiceInterface {
                 .collect(Collectors.toList());
     }
 
+    private JobOffer convertDtoToEntity(JobOfferDTO dto) {
+        JobOffer jobOffer = new JobOffer();
+        jobOffer.setId(dto.getId());
+        jobOffer.setCompanyId(dto.getCompanyId());
+        jobOffer.setTitle(dto.getTitle());
+        jobOffer.setDescription(dto.getDescription());
+        jobOffer.setDetailedDescription(dto.getDetailedDescription());
+        jobOffer.setLocation(dto.getLocation());
+        jobOffer.setDepartment(dto.getDepartment());
+        jobOffer.setEmploymentType(dto.getEmploymentType());
+        jobOffer.setPostingDate(dto.getPostingDate());
+        jobOffer.setClosingDate(dto.getClosingDate());
+        jobOffer.setMinSalary(dto.getMinSalary());
+        jobOffer.setMaxSalary(dto.getMaxSalary());
+        jobOffer.setSalaryCurrency(dto.getSalaryCurrency());
+        jobOffer.setYearsOfExperienceRequired(dto.getYearsOfExperienceRequired());
+        jobOffer.setContactEmail(dto.getContactEmail());
+        jobOffer.setContactPhone(dto.getContactPhone());
+        jobOffer.setActive(dto.getActive());
+        jobOffer.setSkills(dto.getSkills());
+        jobOffer.setTechnologies(dto.getTechnologies());
+        jobOffer.setRequiredDegree(dto.getRequiredDegree());
+        return jobOffer;
+    }
+
     @Override
-    public List<JobOffer> getAll(String email) {
+    public List<JobOfferDTO> getAll(String email) {
         try {
             Long userCompanyId = authorizationService.getUserCompanyId(email);
-                if (userCompanyId != null) {
+            if (userCompanyId != null) {
                 return jobOfferDao.findAll().stream()
                         .filter(offer -> userCompanyId.equals(offer.getCompanyId()))
+                        .map(JobOfferDTO::new)
                         .collect(Collectors.toList());
             }
         } catch (UnauthorizedAccessException e) {
             logger.debug("User has no company association - returning all job offers");
         }
 
-        return jobOfferDao.findActiveOffers();
+        return jobOfferDao.findActiveOffers().stream()
+                .map(JobOfferDTO::new)
+                .collect(Collectors.toList());
     }
 
+
     @Override
-    public List<JobOffer> getActiveOffers(String email) {
+    public List<JobOfferDTO> getActiveOffers(String email) {
         Long userCompanyId = authorizationService.getUserCompanyId(email);
 
         if (userCompanyId == null) {
-            return jobOfferDao.findActiveOffers();
+            return jobOfferDao.findActiveOffers().stream()
+                    .map(JobOfferDTO::new)
+                    .collect(Collectors.toList());
         } else {
             return jobOfferDao.findActiveOffers().stream()
                     .filter(offer -> userCompanyId.equals(offer.getCompanyId()))
+                    .map(JobOfferDTO::new)
                     .collect(Collectors.toList());
         }
     }
 
     @Override
-    public Optional<JobOffer> getById(Long id, String email) {
+    public Optional<JobOfferDTO> getById(Long id, String email) {
         if (id == null || id <= 0) {
             throw new InvalidJobOfferException("ID must be a positive number.");
         }
@@ -103,13 +138,14 @@ public class JobOfferService implements JobOfferServiceInterface {
 
         if (jobOffer.isPresent()) {
             authorizationService.checkCompanyAccess(email, jobOffer.get().getCompanyId());
+            return Optional.of(new JobOfferDTO(jobOffer.get()));
         }
 
-        return jobOffer;
+        return Optional.empty();
     }
 
     @Override
-    public Optional<JobOffer> update(Long id, JobOffer updated, String email) {
+    public Optional<JobOfferDTO> update(Long id, JobOffer updated, String email) {
         if (id == null || id <= 0) {
             throw new InvalidJobOfferException("Invalid job offer ID.");
         }
@@ -117,9 +153,9 @@ public class JobOfferService implements JobOfferServiceInterface {
         return jobOfferDao.findById(id)
                 .map(existing -> {
                     authorizationService.checkCompanyAccess(email, existing.getCompanyId());
-
                     updateJobOfferFields(existing, updated);
-                    return jobOfferDao.save(existing);
+                    JobOffer savedOffer = jobOfferDao.save(existing);
+                    return new JobOfferDTO(savedOffer);
                 });
     }
 
@@ -180,7 +216,7 @@ public class JobOfferService implements JobOfferServiceInterface {
     @Override
     public String getJobDescription(Long jobOfferId, String email) {
         return getById(jobOfferId, email)
-                .map(JobOffer::getDescription)
+                .map(JobOfferDTO::getDescription)
                 .orElse(null);
     }
 
@@ -276,18 +312,21 @@ public class JobOfferService implements JobOfferServiceInterface {
         if (updated.getIsActive() != null) {
             existing.setActive(updated.getIsActive());
         }
+        if (updated.getRequiredDegree() != null) {
+            existing.setRequiredDegree(updated.getRequiredDegree());
+        }
     }
 
     @Override
     public Company getCompanyDetailsByJobOfferId(Long jobOfferId, String email) {
-        Optional<JobOffer> jobOfferOpt = getById(jobOfferId, email);
+        Optional<JobOfferDTO> jobOfferOpt = getById(jobOfferId, email);
 
         if (jobOfferOpt.isEmpty()) {
             throw new JobOfferNotFoundException("Job offer not found with ID: " + jobOfferId);
         }
 
-        JobOffer jobOffer = jobOfferOpt.get();
-        Long companyId = jobOffer.getCompanyId();
+        JobOfferDTO jobOfferDTO = jobOfferOpt.get();
+        Long companyId = jobOfferDTO.getCompanyId();
 
         if (companyId == null) {
             throw new IllegalStateException("Job offer has no associated company");
@@ -296,6 +335,7 @@ public class JobOfferService implements JobOfferServiceInterface {
         return companyDao.findById(companyId)
                 .orElseThrow(() -> new RuntimeException("Company not found with ID: " + companyId));
     }
+
 
 
 
@@ -311,6 +351,17 @@ public class JobOfferService implements JobOfferServiceInterface {
         Double experienceYears = extractExperienceFromDescription(jobDescription);
         if (experienceYears != null) {
             jobOffer.setYearsOfExperienceRequired(experienceYears.intValue());
+        }
+
+        String educationLevel = extractEducationFromDescription(jobDescription);
+        if (educationLevel != null) {
+            try {
+                jobOffer.setRequiredDegree(JobOffer.EducationLevel.valueOf(educationLevel.toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                jobOffer.setRequiredDegree(JobOffer.EducationLevel.NONE_SPECIFIED);
+            }
+        } else {
+            jobOffer.setRequiredDegree(JobOffer.EducationLevel.NONE_SPECIFIED);
         }
 
         return jobOffer;
@@ -371,16 +422,22 @@ public class JobOfferService implements JobOfferServiceInterface {
         String descriptionLower = description.toLowerCase();
 
         if (descriptionLower.contains("phd") || descriptionLower.contains("doctorate")) {
-            return "PhD";
+            return "PHD";
         }
-        if (descriptionLower.contains("master") || descriptionLower.contains("mba")) {
-            return "Master";
+        if (descriptionLower.contains("master") || descriptionLower.contains("mba") ||
+                descriptionLower.contains("ms") || descriptionLower.contains("m.sc")) {
+            return "MASTER";
         }
-        if (descriptionLower.contains("bachelor") || descriptionLower.contains("undergraduate")) {
-            return "Bachelor";
+        if (descriptionLower.contains("bachelor") || descriptionLower.contains("undergraduate") ||
+                descriptionLower.contains("bs") || descriptionLower.contains("b.sc")) {
+            return "BACHELOR";
         }
-        if (descriptionLower.contains("diploma") || descriptionLower.contains("certificate")) {
-            return "Diploma";
+        if (descriptionLower.contains("associate") || descriptionLower.contains("a.a") ||
+                descriptionLower.contains("a.s")) {
+            return "ASSOCIATE";
+        }
+        if (descriptionLower.contains("high school") || descriptionLower.contains("hs diploma")) {
+            return "HIGH_SCHOOL";
         }
 
         return null;
