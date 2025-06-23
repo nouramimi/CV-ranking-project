@@ -46,4 +46,19 @@ public class HRManagerDaoImpl implements HRManagerDao {
     public boolean existsById(Long id) {
         return hrManagerRepository.existsById(id);
     }
+
+    @Override
+    public List<HRManager> findByCompanyId(Long companyId) {
+        return hrManagerRepository.findByCompanyId(companyId);
+    }
+
+    @Override
+    public Optional<HRManager> findByIdAndCompanyId(Long id, Long companyId) {
+        return hrManagerRepository.findByIdAndCompanyId(id, companyId);
+    }
+
+    @Override
+    public void delete(HRManager hrManager) {
+        hrManagerRepository.delete(hrManager);
+    }
 }

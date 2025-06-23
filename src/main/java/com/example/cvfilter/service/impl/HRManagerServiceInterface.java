@@ -11,4 +11,9 @@ public interface HRManagerServiceInterface {
     HRManager updateHRManager(Long id, HRManager hrManager);
     void deleteHRManager(Long id);
     HRManager createHRManagerByAdmin(HRManager hrManager, String adminIdentifier);
+    List<HRManager> getAllHRManagersByAdminCompany(String adminEmail);
+    void deleteHRManagerByAdmin(Long id, String adminEmail);
+    HRManager updateHRManagerByAdmin(Long id, HRManager hrManager, String adminEmail);
+    HRManager getHRManagerByIdAndAdminCompany(Long id, String adminEmail);
+
 }

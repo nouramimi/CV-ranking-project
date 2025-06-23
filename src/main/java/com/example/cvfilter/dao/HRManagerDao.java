@@ -12,4 +12,7 @@ public interface HRManagerDao {
     Optional<HRManager> findByEmail(String email);
     void deleteById(Long id);
     boolean existsById(Long id);
+    List<HRManager> findByCompanyId(Long companyId);
+    Optional<HRManager> findByIdAndCompanyId(Long id, Long companyId);
+    void delete(HRManager hrManager);
 }

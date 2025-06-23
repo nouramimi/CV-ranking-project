@@ -25,24 +25,26 @@ public class HRManagerController {
     }
 
     @GetMapping
-    public ResponseEntity<List<HRManager>> getAllHRManagers() {
-        return ResponseEntity.ok(hrManagerService.getAllHRManagers());
+    public ResponseEntity<List<HRManager>> getAllHRManagers(Authentication authentication) {
+        List<HRManager> hrManagers = hrManagerService.getAllHRManagersByAdminCompany(authentication.getName());
+        return ResponseEntity.ok(hrManagers);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<HRManager> getHRManagerById(@PathVariable Long id) {
-        return ResponseEntity.ok(hrManagerService.getHRManagerById(id));
+    public ResponseEntity<HRManager> getHRManagerById(@PathVariable Long id, Authentication authentication) {
+        HRManager hrManager = hrManagerService.getHRManagerByIdAndAdminCompany(id, authentication.getName());
+        return ResponseEntity.ok(hrManager);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<HRManager> updateHRManager(@PathVariable Long id, @RequestBody HRManager hrManager) {
-        HRManager updated = hrManagerService.updateHRManager(id, hrManager);
+    public ResponseEntity<HRManager> updateHRManager(@PathVariable Long id, @RequestBody HRManager hrManager, Authentication authentication) {
+        HRManager updated = hrManagerService.updateHRManagerByAdmin(id, hrManager, authentication.getName());
         return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteHRManager(@PathVariable Long id) {
-        hrManagerService.deleteHRManager(id);
+    public ResponseEntity<Void> deleteHRManager(@PathVariable Long id, Authentication authentication) {
+        hrManagerService.deleteHRManagerByAdmin(id, authentication.getName());
         return ResponseEntity.noContent().build();
     }
 }

@@ -30,13 +30,11 @@ public class HRManagerService implements HRManagerServiceInterface {
     }
 
     @Override
-    public HRManager createHRManagerByAdmin(HRManager hrManager, String adminIdentifier) {
-        Admin admin = adminDao.findByUsername(adminIdentifier)
-                .orElse(adminDao.findByEmail(adminIdentifier)
-                        .orElseThrow(() -> new UserNotFoundException("Admin not found with identifier: " + adminIdentifier)));
+    public HRManager createHRManagerByAdmin(HRManager hrManager, String adminEmail) {
+        Admin admin = adminDao.findByEmail(adminEmail)
+                .orElseThrow(() -> new UserNotFoundException("Admin not found with email: " + adminEmail));
 
         hrManager.setCompany(admin.getCompany());
-
         hrManager.setPassword(passwordEncoder.encode(hrManager.getPassword()));
 
         return hrManagerDao.save(hrManager);
@@ -61,6 +59,50 @@ public class HRManagerService implements HRManagerServiceInterface {
         existing.setCompany(hrManager.getCompany());
         existing.setPassword(passwordEncoder.encode(hrManager.getPassword()));
         return hrManagerDao.save(existing);
+    }
+
+    @Override
+    public List<HRManager> getAllHRManagersByAdminCompany(String adminEmail) {
+        Admin admin = adminDao.findByEmail(adminEmail)
+                .orElseThrow(() -> new UserNotFoundException("Admin not found with email: " + adminEmail));
+
+        return hrManagerDao.findByCompanyId(admin.getCompany().getId());
+    }
+
+    @Override
+    public HRManager updateHRManagerByAdmin(Long id, HRManager hrManager, String adminEmail) {
+        Admin admin = adminDao.findByEmail(adminEmail)
+                .orElseThrow(() -> new UserNotFoundException("Admin not found with email: " + adminEmail));
+
+        HRManager existing = hrManagerDao.findByIdAndCompanyId(id, admin.getCompany().getId())
+                .orElseThrow(() -> new UserNotFoundException("HR Manager not found or doesn't belong to your company"));
+
+        existing.setUsername(hrManager.getUsername());
+        existing.setEmail(hrManager.getEmail());
+        existing.setPassword(passwordEncoder.encode(hrManager.getPassword()));
+
+        return hrManagerDao.save(existing);
+    }
+
+    @Override
+    public HRManager getHRManagerByIdAndAdminCompany(Long id, String adminEmail) {
+        Admin admin = adminDao.findByEmail(adminEmail)
+                .orElseThrow(() -> new UserNotFoundException("Admin not found with email: " + adminEmail));
+
+        return hrManagerDao.findByIdAndCompanyId(id, admin.getCompany().getId())
+                .orElseThrow(() -> new UserNotFoundException(
+                        "HR Manager not found with id: " + id + " or doesn't belong to your company"));
+    }
+
+    @Override
+    public void deleteHRManagerByAdmin(Long id, String adminEmail) {
+        Admin admin = adminDao.findByEmail(adminEmail)
+                .orElseThrow(() -> new UserNotFoundException("Admin not found with email: " + adminEmail));
+
+        HRManager hrManager = hrManagerDao.findByIdAndCompanyId(id, admin.getCompany().getId())
+                .orElseThrow(() -> new UserNotFoundException("HR Manager not found or doesn't belong to your company"));
+
+        hrManagerDao.delete(hrManager);
     }
 
     @Override

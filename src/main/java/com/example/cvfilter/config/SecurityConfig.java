@@ -39,14 +39,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> {
                     logger.debug("Configuring authorization rules");
                     auth
-                            .requestMatchers("/api/auth/**","/api/job-offers/getAll").permitAll()
+                            .requestMatchers("/api/auth/**","/api/job-offers/getAll", "/api/cv-ranking/**").permitAll()
                             .requestMatchers("/error").permitAll()
                             .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                             .requestMatchers(swaggerWhiteListApi).permitAll()
 
                             .requestMatchers("/api/cv/upload", "/api/job-offers/getById/**").hasRole("USER")
                             .requestMatchers("/api/job-offers/**").hasAnyRole("ADMIN", "HR_MANAGER")
-                            .requestMatchers("/api/cv-ranking/**", "/api/cv/**").hasAnyRole("ADMIN", "HR_MANAGER")
+                            .requestMatchers( "/api/cv/**").hasAnyRole("ADMIN", "HR_MANAGER")
                             .requestMatchers("/api/companies/**", "/api/hr-managers/**").hasRole("ADMIN")
                             .anyRequest().authenticated();
                 })
