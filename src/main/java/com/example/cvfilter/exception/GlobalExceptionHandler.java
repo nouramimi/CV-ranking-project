@@ -52,6 +52,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ex.getMessage());
     }
 
+    @ExceptionHandler(ProfileException.class)
+    public ResponseEntity<Map<String, String>> handleProfileException(ProfileException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getMessage());
+        return ResponseEntity.badRequest().body(error);
+    }
+
 
     private ResponseEntity<Object> buildResponse(HttpStatus status, String message) {
         Map<String, Object> error = new HashMap<>();

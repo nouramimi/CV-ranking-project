@@ -27,6 +27,16 @@ public class UserDaoImpl implements UserDao {
     }
 
     @Override
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    @Override
+    public boolean existsByUsername(String username) {
+        return userRepository.existsByUsername(username);
+    }
+
+    @Override
     public User save(User user) {
         return userRepository.save(user);
     }
