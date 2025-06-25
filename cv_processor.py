@@ -508,11 +508,13 @@ class CVDataProcessor:
             
             df.to_csv(timestamped_file, index=False, encoding='utf-8')
             print(f"Processed data saved to {timestamped_file}")
+            return timestamped_file
         except PermissionError:
             alt_file = f"shortlisted_cvs_backup_{timestamp}.csv"
             try:
                 df.to_csv(alt_file, index=False, encoding='utf-8')
                 print(f"Original file locked, saved to {alt_file}")
+                return alt_file
             except Exception as e2:
                 print(f"Error saving to backup file: {e2}")
                 raise
@@ -602,23 +604,36 @@ def main():
     }
 
     processor = CVDataProcessor(db_config)
-    input_file = "cv_processed_data.csv"
-    output_file = "shortlisted_cvs.csv"
+    input_file = "cv_extracted_info.csv"
+    preprocessed_file = "cv_preprocessed.csv"
+    filtered_file = "shortlisted_cvs.csv"
 
     try:
-        # Load data
-        df = processor.load_data(input_file)
-        print(f"Loaded columns: {list(df.columns)}")
+        # Stage 1: Load and preprocess data
+        print("\n" + "="*50)
+        print("STAGE 1: DATA PREPROCESSING")
+        print("="*50)
+        raw_df = processor.load_data(input_file)
+        print(f"Loaded columns: {list(raw_df.columns)}")
         
         # Process dataframe
-        processed_df = processor.process_dataframe(df)
-        print(f"After processing: {len(processed_df)} records")
+        preprocessed_df = processor.process_dataframe(raw_df)
+        print(f"After preprocessing: {len(preprocessed_df)} records")
+        
+        # Save preprocessed data
+        preprocessed_output = processor.save_processed_data(preprocessed_df, preprocessed_file)
+        print(f"Preprocessed data saved to: {preprocessed_output}")
 
+        # Stage 2: Filtering
+        print("\n" + "="*50)
+        print("STAGE 2: CV FILTERING")
+        print("="*50)
+        
         # Try lenient filtering first
         print("\n" + "="*50)
         print("TRYING LENIENT FILTERING FIRST")
         print("="*50)
-        shortlisted_df = processor.hard_filter_cvs(processed_df, apply_strict_filters=False)
+        shortlisted_df = processor.hard_filter_cvs(preprocessed_df, apply_strict_filters=False)
         print(f"After lenient filtering: {len(shortlisted_df)} records")
 
         # If no results with lenient filtering, show some sample data for debugging
@@ -629,7 +644,7 @@ def main():
             
             # Show sample data
             print("\nSample data:")
-            for idx, row in processed_df.head(5).iterrows():
+            for idx, row in preprocessed_df.head(5).iterrows():
                 print(f"CV {idx+1}:")
                 print(f"  Original experience: {str(row.get('experience', 'N/A'))[:100]}...")
                 print(f"  Calculated years: {row.get('total_experience_years', 0)}")
@@ -639,12 +654,14 @@ def main():
             
             # Try without any filtering for debugging
             print("Saving all processed CVs for debugging...")
-            processor.save_processed_data(processed_df, "debug_all_cvs.csv")
+            processor.save_processed_data(preprocessed_df, "debug_all_cvs.csv")
         else:
-            # Save results
-            processor.save_processed_data(shortlisted_df, output_file)
+            # Save filtered results
+            filtered_output = processor.save_processed_data(shortlisted_df, filtered_file)
+            print(f"Filtered results saved to: {filtered_output}")
 
-        processor.generate_report(df, shortlisted_df if len(shortlisted_df) > 0 else processed_df)
+        # Generate final report
+        processor.generate_report(raw_df, shortlisted_df if len(shortlisted_df) > 0 else preprocessed_df)
 
         print(f"\nProcessing complete!")
 

@@ -14,6 +14,9 @@ import com.example.cvfilter.service.impl.AuthorizationServiceInterface;
 import com.example.cvfilter.service.impl.JobOfferServiceInterface;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -50,6 +53,83 @@ public class JobOfferService implements JobOfferServiceInterface {
 
     @Override
     public PaginatedResponse<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(
+            String email, Boolean active, JobOffer.EmploymentType employmentType,
+            Double salary, String companyName, String jobTitle, int page, int size) {
+
+        try {
+            Long userCompanyId = authorizationService.getUserCompanyId(email);
+            Pageable pageable = PageRequest.of(page, size);
+
+            Page<JobOffer> jobOfferPage;
+            if (userCompanyId != null) {
+                // For users associated with a company, only show their company's job offers
+                jobOfferPage = jobOfferDao.findByCompanyIdAndFilters(
+                        userCompanyId,
+                        active,
+                        employmentType,
+                        salary,
+                        companyName,
+                        jobTitle,
+                        pageable);
+            } else {
+                jobOfferPage = jobOfferDao.findAllWithFilters(
+                        active,
+                        employmentType,
+                        salary,
+                        companyName,
+                        jobTitle,
+                        pageable);
+            }
+
+            List<JobOfferWithCompanyDTO> content = jobOfferPage.getContent().stream()
+                    .map(jobOffer -> {
+                        Company company = jobOffer.getCompanyId() != null ?
+                                companyDao.findById(jobOffer.getCompanyId()).orElse(null) :
+                                null;
+                        return new JobOfferWithCompanyDTO(jobOffer, company);
+                    })
+                    .collect(Collectors.toList());
+
+            return new PaginatedResponse<>(
+                    content,
+                    jobOfferPage.getNumber(),
+                    jobOfferPage.getSize(),
+                    (int) jobOfferPage.getTotalElements(),
+                    jobOfferPage.getTotalPages()
+            );
+        } catch (UnauthorizedAccessException e) {
+            logger.debug("User has no company association - returning all job offers");
+            Pageable pageable = PageRequest.of(page, size);
+            Page<JobOffer> jobOfferPage = jobOfferDao.findAllWithFilters(
+                    active,
+                    employmentType,
+                    salary,
+                    companyName,
+                    jobTitle,
+                    pageable);
+
+            List<JobOfferWithCompanyDTO> content = jobOfferPage.getContent().stream()
+                    .map(jobOffer -> {
+                        Company company = jobOffer.getCompanyId() != null ?
+                                companyDao.findById(jobOffer.getCompanyId()).orElse(null) :
+                                null;
+                        return new JobOfferWithCompanyDTO(jobOffer, company);
+                    })
+                    .collect(Collectors.toList());
+
+            return new PaginatedResponse<>(
+                    content,
+                    jobOfferPage.getNumber(),
+                    jobOfferPage.getSize(),
+                    (int) jobOfferPage.getTotalElements(),
+                    jobOfferPage.getTotalPages()
+            );
+        }
+    }
+
+
+    /*@Override
+    public PaginatedResponse<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(
             String email, Boolean active, int page, int size) {
 
         List<JobOfferDTO> offers = Boolean.TRUE.equals(active) ?
@@ -84,7 +164,7 @@ public class JobOfferService implements JobOfferServiceInterface {
                 totalElements,
                 totalPages
         );
-    }
+    }*/
 
     /*@Override
     public List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active) {
@@ -145,6 +225,43 @@ public class JobOfferService implements JobOfferServiceInterface {
             logger.debug("User has no company association - returning all job offers");
         }
 
+        return jobOfferDao.findAll().stream()
+                .map(JobOfferDTO::new)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<JobOfferDTO> getActiveOffers(String email) {
+        Long userCompanyId = authorizationService.getUserCompanyId(email);
+
+        if (userCompanyId == null) {
+            return jobOfferDao.findActiveOffers().stream()
+                    .map(JobOfferDTO::new)
+                    .collect(Collectors.toList());
+        } else {
+            return jobOfferDao.findActiveOffers().stream()
+                    .filter(offer -> userCompanyId.equals(offer.getCompanyId()))
+                    .map(JobOfferDTO::new)
+                    .collect(Collectors.toList());
+        }
+    }
+
+
+
+    /*@Override
+    public List<JobOfferDTO> getAll(String email) {
+        try {
+            Long userCompanyId = authorizationService.getUserCompanyId(email);
+            if (userCompanyId != null) {
+                return jobOfferDao.findAll().stream()
+                        .filter(offer -> userCompanyId.equals(offer.getCompanyId()))
+                        .map(JobOfferDTO::new)
+                        .collect(Collectors.toList());
+            }
+        } catch (UnauthorizedAccessException e) {
+            logger.debug("User has no company association - returning all job offers");
+        }
+
         return jobOfferDao.findActiveOffers().stream()
                 .map(JobOfferDTO::new)
                 .collect(Collectors.toList());
@@ -165,7 +282,7 @@ public class JobOfferService implements JobOfferServiceInterface {
                     .map(JobOfferDTO::new)
                     .collect(Collectors.toList());
         }
-    }
+    }*/
 
     @Override
     public Optional<JobOfferDTO> getById(Long id, String email) {

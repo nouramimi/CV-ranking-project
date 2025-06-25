@@ -3,6 +3,8 @@ package com.example.cvfilter.dao.impl;
 import com.example.cvfilter.dao.JobOfferDao;
 import com.example.cvfilter.dao.entity.JobOffer;
 import com.example.cvfilter.dao.repository.JobOfferRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -46,4 +48,16 @@ public class JobOfferDaoImpl implements JobOfferDao {
     public boolean existsById(Long id) {
         return jobOfferRepository.existsById(id);
     }
+
+    @Override
+    public Page<JobOffer> findAllWithFilters(Boolean active, JobOffer.EmploymentType employmentType, Double salary, String companyName, String jobTitle, Pageable pageable) {
+        return jobOfferRepository.findAllWithFilters(active, employmentType, salary, companyName, jobTitle, pageable);
+    }
+
+    @Override
+    public Page<JobOffer> findByCompanyIdAndFilters(Long companyId, Boolean active, JobOffer.EmploymentType employmentType, Double salary, String companyName, String jobTitle, Pageable pageable) {
+        return jobOfferRepository.findByCompanyIdAndFilters(companyId, active, employmentType, salary, companyName, jobTitle, pageable);
+    }
+
+
 }

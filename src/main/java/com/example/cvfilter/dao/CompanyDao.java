@@ -20,5 +20,6 @@ public interface CompanyDao {
     Optional<Company> findByName(String name);
 
     boolean existsByName(String name);
+
 }
 

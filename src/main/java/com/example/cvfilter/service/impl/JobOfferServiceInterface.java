@@ -23,12 +23,16 @@ public interface JobOfferServiceInterface {
     Company getCompanyDetailsByJobOfferId(Long jobOfferId, String email);
     Optional<JobOfferWithCompanyDTO> getByIdWithCompany(Long id, String email);
     //List<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(String email, Boolean active);
+    //PaginatedResponse<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(
+    //        String email, Boolean active, int page, int size);
     PaginatedResponse<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(
-            String email, Boolean active, int page, int size);
+            String email, Boolean active, JobOffer.EmploymentType employmentType,
+            Double salary, String companyName, String jobTitle, int page, int size);
     JobOffer parseJobOfferFromDescription(String jobTitle, String jobDescription);
     Set<String> extractSkillsFromDescription(String description);
     Double extractExperienceFromDescription(String description);
     String extractEducationFromDescription(String description);
+
 
 
 

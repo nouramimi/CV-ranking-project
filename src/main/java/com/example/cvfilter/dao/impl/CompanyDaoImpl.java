@@ -52,4 +52,6 @@ public class CompanyDaoImpl implements CompanyDao {
     public boolean existsByName(String name) {
         return companyRepository.existsByName(name);
     }
+
+
 }

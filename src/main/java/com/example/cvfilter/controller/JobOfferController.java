@@ -33,6 +33,26 @@ public class JobOfferController {
         return ResponseEntity.ok(createdOffer);
     }
 
+    @GetMapping("/getAll")
+    public ResponseEntity<PaginatedResponse<JobOfferWithCompanyDTO>> getAll(
+            @RequestParam(required = false) Boolean active,
+            @RequestParam(required = false) JobOffer.EmploymentType employmentType,
+            @RequestParam(required = false) Double salary,
+            @RequestParam(required = false) String companyName,
+            @RequestParam(required = false) String jobTitle,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+
+        String email = extractEmailFromRequest(request);
+        PaginatedResponse<JobOfferWithCompanyDTO> response =
+                service.getAllJobOffersWithCompanyInfo(email, active, employmentType,
+                        salary, companyName, jobTitle, page, size);
+        return ResponseEntity.ok(response);
+    }
+
+
+
     /*@GetMapping("/getAll")
     public ResponseEntity<List<JobOfferWithCompanyDTO>> getAll(
             @RequestParam(required = false) Boolean active,
@@ -43,7 +63,7 @@ public class JobOfferController {
         return ResponseEntity.ok(response);
     }*/
 
-    @GetMapping("/getAll")
+    /*@GetMapping("/getAll")
     public ResponseEntity<PaginatedResponse<JobOfferWithCompanyDTO>> getAll(
             @RequestParam(required = false) Boolean active,
             @RequestParam(defaultValue = "0") int page,
@@ -54,7 +74,7 @@ public class JobOfferController {
         PaginatedResponse<JobOfferWithCompanyDTO> response =
                 service.getAllJobOffersWithCompanyInfo(email, active, page, size);
         return ResponseEntity.ok(response);
-    }
+    }*/
 
 
     @GetMapping("/getById/{id}")
