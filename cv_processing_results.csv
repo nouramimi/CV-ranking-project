@@ -1,0 +1,4 @@
+user_id,job_offer_id,cv_file_path,organization_score,processing_completed_at
+19,5,C:\Users\noura\OneDrive\Documents\ING-GL-02\my projects\cv-filter\cv-filter\data\5\CV Nour El Houda Amimi version1_user_19_1750283469902.pdf,10,00,2025-06-26T22:20:52.429862300
+19,8,C:\Users\noura\OneDrive\Documents\ING-GL-02\my projects\cv-filter\cv-filter\data\8\CV Nour El Houda Amimi version3_user_19_1750381862336.docx,65,00,2025-06-26T22:21:09.931618800
+19,11,C:\Users\noura\OneDrive\Documents\CV-ranking-project-main\data\11\CV Nour El Houda Amimi version3_user_19_1750690588346.docx,65,00,2025-06-26T22:21:51.869638200
