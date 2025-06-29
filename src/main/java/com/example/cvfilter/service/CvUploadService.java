@@ -8,6 +8,7 @@ import com.example.cvfilter.dao.entity.*;
 import com.example.cvfilter.dao.repository.CvScoresRepository;
 import com.example.cvfilter.dto.CvInfoDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
+import com.example.cvfilter.dto.JobOfferWithScoreDTO;
 import com.example.cvfilter.exception.CvUploadException;
 import com.example.cvfilter.exception.JobOfferNotFoundException;
 import com.example.cvfilter.exception.UserNotFoundException;
@@ -309,6 +310,39 @@ public class CvUploadService implements CvUploadServiceInterface {
                             .orElse(null);
 
                     return new JobOfferWithCompanyDTO(jobOffer, company);
+                })
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(content, pageable, jobOfferIdsPage.getTotalElements());
+    }
+
+
+    public Page<JobOfferWithScoreDTO> getJobOffersWithScoresForUser(Long userId, int page, int size) {
+        if (!userDao.existsById(userId)) {
+            throw new UserNotFoundException("User not found with ID: " + userId);
+        }
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Long> jobOfferIdsPage = cvInfoDao.findDistinctJobOfferIdsByUserId(userId, pageable);
+
+        List<JobOfferWithScoreDTO> content = jobOfferIdsPage.getContent().stream()
+                .map(jobOfferId -> {
+
+                    JobOffer jobOffer = jobOfferDao.findById(jobOfferId)
+                            .orElseThrow(() -> new JobOfferNotFoundException(
+                                    "Job offer not found with ID: " + jobOfferId));
+
+                    Company company = companyDao.findById(jobOffer.getCompanyId())
+                            .orElse(null);
+
+                    Optional<CvScores> cvScores = cvScoresRepository
+                            .findByUserIdAndJobOfferId(userId, jobOfferId);
+
+                    if (cvScores.isPresent()) {
+                        return new JobOfferWithScoreDTO(jobOffer, company, cvScores.get());
+                    } else {
+                        return new JobOfferWithScoreDTO(jobOffer, company);
+                    }
                 })
                 .collect(Collectors.toList());
 

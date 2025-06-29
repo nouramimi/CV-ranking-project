@@ -6,6 +6,7 @@ import com.example.cvfilter.dao.entity.CvInfo;
 import com.example.cvfilter.dao.entity.User;
 import com.example.cvfilter.dto.CvInfoDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
+import com.example.cvfilter.dto.JobOfferWithScoreDTO;
 import com.example.cvfilter.dto.PaginatedResponse;
 import com.example.cvfilter.exception.UserNotFoundException;
 import com.example.cvfilter.service.impl.AuthorizationServiceInterface;
@@ -67,6 +68,34 @@ public class CvUploadController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/user/applications")
+    public ResponseEntity<PaginatedResponse<JobOfferWithScoreDTO>> getUserJobApplications(
+            @RequestParam(required = false) Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+
+        if (userId == null) {
+            String email = extractEmailFromRequest(request);
+            User user = userDao.findByEmail(email)
+                    .orElseThrow(() -> new UserNotFoundException("User not found"));
+            userId = user.getId();
+        }
+
+        Page<JobOfferWithScoreDTO> jobOffers =
+                cvUploadService.getJobOffersWithScoresForUser(userId, page, size);
+
+        PaginatedResponse<JobOfferWithScoreDTO> response = new PaginatedResponse<>(
+                jobOffers.getContent(),
+                jobOffers.getNumber(),
+                jobOffers.getSize(),
+                jobOffers.getTotalElements(),
+                jobOffers.getTotalPages()
+        );
+
+        return ResponseEntity.ok(response);
+    }
+
     /*@GetMapping("/job/{jobId}/candidates")
     public ResponseEntity<PaginatedResponse<CvInfoDTO>> getCandidatesForJob(
             @PathVariable Long jobId,
@@ -103,7 +132,7 @@ public class CvUploadController {
         return ResponseEntity.ok(response);
     }*/
 
-    @GetMapping("/user/applications")
+    /*@GetMapping("/user/applications")
     public ResponseEntity<PaginatedResponse<JobOfferWithCompanyDTO>> getUserJobApplications(
             @RequestParam(required = false) Long userId,
             @RequestParam(defaultValue = "0") int page,
@@ -129,7 +158,7 @@ public class CvUploadController {
         );
 
         return ResponseEntity.ok(response);
-    }
+    }*/
 
     /*@GetMapping("/job/{jobId}/candidates")
     public ResponseEntity<List<CvInfoDTO>> getCandidatesForJob(@PathVariable Long jobId) {
