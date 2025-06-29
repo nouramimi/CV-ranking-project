@@ -1,6 +1,8 @@
 package com.example.cvfilter.dao.repository;
 
 import com.example.cvfilter.dao.entity.CvScores;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -41,16 +43,8 @@ public interface CvScoresRepository extends JpaRepository<CvScores, Long> {
     @Query("SELECT cs FROM CvScores cs WHERE cs.organizationScore IS NULL OR cs.technicalScore IS NULL")
     List<CvScores> findUnscoredCvs();
 
-    // FIXED: Use JPQL date comparison instead of DATE() function
     @Query("SELECT COUNT(cs) FROM CvScores cs WHERE FUNCTION('DATE', cs.processedAt) = CURRENT_DATE")
     Long countCvsScoredToday();
-
-    // ALTERNATIVE 1: Use date range comparison (more portable)
-    @Query("SELECT COUNT(cs) FROM CvScores cs WHERE cs.processedAt >= :startOfDay AND cs.processedAt < :startOfNextDay")
-    Long countCvsScoredTodayWithRange(@Param("startOfDay") LocalDateTime startOfDay, @Param("startOfNextDay") LocalDateTime startOfNextDay);
-
-    // ALTERNATIVE 2: Use derived query method (Spring Data JPA will handle it)
-    Long countByProcessedAtBetween(LocalDateTime startOfDay, LocalDateTime endOfDay);
 
     void deleteByUserIdAndJobOfferId(Long userId, Long jobOfferId);
 
@@ -65,4 +59,80 @@ public interface CvScoresRepository extends JpaRepository<CvScores, Long> {
     Long getCvRankForJob(@Param("jobOfferId") Long jobOfferId,
                          @Param("orgScore") BigDecimal orgScore,
                          @Param("techScore") BigDecimal techScore);
+
+    // PAGEABLE METHODS
+    @Query("SELECT cs FROM CvScores cs WHERE cs.jobOfferId = :jobOfferId " +
+            "ORDER BY cs.finalScore DESC, cs.jobMatchScore DESC")
+    Page<CvScores> findByJobOfferIdOrderByFinalScoreDesc(@Param("jobOfferId") Long jobOfferId, Pageable pageable);
+
+    @Query("SELECT cs FROM CvScores cs WHERE cs.jobOfferId = :jobOfferId " +
+            "ORDER BY cs.finalScore DESC, cs.jobMatchScore DESC, cs.organizationScore DESC")
+    Page<CvScores> findTopCvsForJobByFinalScore(@Param("jobOfferId") Long jobOfferId, Pageable pageable);
+
+    @Query("SELECT cs FROM CvScores cs WHERE cs.finalScore >= :minScore " +
+            "ORDER BY cs.finalScore DESC")
+    Page<CvScores> findByFinalScoreGreaterThanEqual(@Param("minScore") BigDecimal minScore, Pageable pageable);
+
+    @Query("SELECT cs FROM CvScores cs WHERE cs.userId = :userId AND cs.finalScore >= :minScore " +
+            "ORDER BY cs.finalScore DESC")
+    Page<CvScores> findByUserIdAndFinalScoreGreaterThanEqual(
+            @Param("userId") Long userId,
+            @Param("minScore") BigDecimal minScore,
+            Pageable pageable);
+
+    @Query("SELECT cs FROM CvScores cs WHERE cs.userId = :userId AND cs.jobOfferId = :jobOfferId " +
+            "ORDER BY cs.processedAt DESC")
+    Page<CvScores> findByUserIdAndJobOfferIdOrderByProcessedAtDesc(
+            @Param("userId") Long userId,
+            @Param("jobOfferId") Long jobOfferId,
+            Pageable pageable);
+
+    @Query("SELECT cs FROM CvScores cs WHERE cs.matchLevel = :matchLevel " +
+            "ORDER BY cs.finalScore DESC")
+    Page<CvScores> findByMatchLevelOrderByFinalScoreDesc(@Param("matchLevel") String matchLevel, Pageable pageable);
+
+    @Query("SELECT cs FROM CvScores cs WHERE cs.userId = :userId AND cs.matchLevel = :matchLevel " +
+            "ORDER BY cs.finalScore DESC")
+    Page<CvScores> findByUserIdAndMatchLevelOrderByFinalScoreDesc(
+            @Param("userId") Long userId,
+            @Param("matchLevel") String matchLevel,
+            Pageable pageable);
+
+    @Query("SELECT COUNT(cs) + 1 FROM CvScores cs " +
+            "WHERE cs.jobOfferId = :jobOfferId " +
+            "AND cs.finalScore > :finalScore")
+    Long getCvRankForJobByFinalScore(
+            @Param("jobOfferId") Long jobOfferId,
+            @Param("finalScore") BigDecimal finalScore);
+
+    Page<CvScores> findByUserIdOrderByProcessedAtDesc(Long userId, Pageable pageable);
+
+    // COMPANY-FILTERED METHODS (FIXED TO USE companyId)
+    @Query("SELECT cs FROM CvScores cs " +
+            "WHERE cs.finalScore >= :minScore " +
+            "AND cs.jobOfferId IN (SELECT jo.id FROM JobOffer jo WHERE jo.companyId = :companyId) " +
+            "ORDER BY cs.finalScore DESC")
+    Page<CvScores> findByFinalScoreGreaterThanEqualAndCompany(
+            @Param("minScore") BigDecimal minScore,
+            @Param("companyId") Long companyId,
+            Pageable pageable);
+
+    @Query("SELECT cs FROM CvScores cs " +
+            "WHERE cs.jobOfferId IN (SELECT jo.id FROM JobOffer jo WHERE jo.companyId = :companyId) " +
+            "ORDER BY cs.processedAt DESC")
+    Page<CvScores> findAllByCompany(@Param("companyId") Long companyId, Pageable pageable);
+
+    @Query("SELECT cs FROM CvScores cs " +
+            "WHERE cs.matchLevel = :matchLevel " +
+            "AND cs.jobOfferId IN (SELECT jo.id FROM JobOffer jo WHERE jo.companyId = :companyId) " +
+            "ORDER BY cs.finalScore DESC")
+    Page<CvScores> findByMatchLevelAndCompanyOrderByFinalScoreDesc(
+            @Param("matchLevel") String matchLevel,
+            @Param("companyId") Long companyId,
+            Pageable pageable);
+
+    @Query("SELECT COUNT(cs) > 0 FROM CvScores cs " +
+            "WHERE cs.userId = :userId " +
+            "AND cs.jobOfferId IN (SELECT jo.id FROM JobOffer jo WHERE jo.companyId = :companyId)")
+    boolean existsUserInCompany(@Param("userId") Long userId, @Param("companyId") Long companyId);
 }

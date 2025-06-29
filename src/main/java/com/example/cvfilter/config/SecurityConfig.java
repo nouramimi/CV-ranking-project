@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.*;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.*;
@@ -52,6 +53,26 @@ public class SecurityConfig {
                             .requestMatchers(swaggerWhiteListApi).permitAll()
 
                             .requestMatchers("/api/cv/upload/**", "/api/cv/user/applications").hasRole("USER")
+
+                            .requestMatchers("/api/v1/cv-scores/my-scores").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/my-rank/job/*").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/user/*/job/*").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/user/*/job/*/exists").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/user/*/job/*/rank").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/job/*/top").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/job/*").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/user/*").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/high-scoring").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/match-level/*").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/summary").hasAnyRole("USER", "ADMIN", "HR_MANAGER")
+
+                            // CV Scores - ADMIN/HR_MANAGER seulement
+                            .requestMatchers("/api/v1/cv-scores/job/*/stats").hasAnyRole("ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/job/*/compare").hasAnyRole("ADMIN", "HR_MANAGER")
+                            .requestMatchers("/api/v1/cv-scores/today-count").hasAnyRole("ADMIN", "HR_MANAGER")
+                            .requestMatchers(HttpMethod.DELETE, "/api/v1/cv-scores/user/*/job/*").hasAnyRole("ADMIN", "HR_MANAGER")
+
+
                             .requestMatchers("/api/job-offers/**").hasAnyRole("ADMIN", "HR_MANAGER")
                             .requestMatchers( "/api/cv/**").hasAnyRole("ADMIN", "HR_MANAGER")
                             .requestMatchers("/api/companies/**", "/api/hr-managers/**").hasRole("ADMIN")

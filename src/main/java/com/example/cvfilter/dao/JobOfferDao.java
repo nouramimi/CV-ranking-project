@@ -54,4 +54,8 @@ public interface JobOfferDao {
             @Param("jobTitle") String jobTitle,
             Pageable pageable);
 
+    boolean existsByIdAndCompanyId(Long id, Long companyId);
+
+    /*@Query("SELECT COUNT(jo) > 0 FROM JobOffer jo WHERE jo.id = :jobOfferId AND jo.companyId = :companyId")
+    boolean existsByIdAndCompanyId(@Param("jobOfferId") Long jobOfferId, @Param("companyId") Long companyId);*/
 }

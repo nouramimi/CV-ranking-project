@@ -12,6 +12,8 @@ import com.example.cvfilter.service.impl.AuthorizationServiceInterface;
 import com.example.cvfilter.service.impl.CvUploadServiceInterface;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -52,22 +54,54 @@ public class CvUploadController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
-        Page<CvInfo> cvInfos = cvUploadService.getCandidatesForJobOffer(jobId, page, size);
-
-        List<CvInfoDTO> dtos = cvInfos.getContent().stream()
-                .map(CvInfoDTO::new)
-                .collect(Collectors.toList());
+        Page<CvInfoDTO> cvInfoDTOs = cvUploadService.getCandidatesWithScoresForJobOffer(jobId, page, size);
 
         PaginatedResponse<CvInfoDTO> response = new PaginatedResponse<>(
-                dtos,
-                cvInfos.getNumber(),
-                cvInfos.getSize(),
-                cvInfos.getTotalElements(),
-                cvInfos.getTotalPages()
+                cvInfoDTOs.getContent(),
+                cvInfoDTOs.getNumber(),
+                cvInfoDTOs.getSize(),
+                cvInfoDTOs.getTotalElements(),
+                cvInfoDTOs.getTotalPages()
         );
 
         return ResponseEntity.ok(response);
     }
+
+    /*@GetMapping("/job/{jobId}/candidates")
+    public ResponseEntity<PaginatedResponse<CvInfoDTO>> getCandidatesForJob(
+            @PathVariable Long jobId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "false") boolean includeScores,
+            @RequestParam(defaultValue = "finalScore") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDirection) {
+
+        Page<CvInfoDTO> candidatesPage;
+
+        if (includeScores) {
+            candidatesPage = cvUploadService.getCandidatesWithScoresSortedForJobOffer(
+                    jobId, page, size, sortBy, sortDirection);
+        } else {
+            Page<CvInfo> cvInfos = cvUploadService.getCandidatesForJobOffer(jobId, page, size);
+            List<CvInfoDTO> dtos = cvInfos.getContent().stream()
+                    .map(CvInfoDTO::new)
+                    .collect(Collectors.toList());
+
+            candidatesPage = new PageImpl<>(dtos,
+                    PageRequest.of(page, size),
+                    cvInfos.getTotalElements());
+        }
+
+        PaginatedResponse<CvInfoDTO> response = new PaginatedResponse<>(
+                candidatesPage.getContent(),
+                candidatesPage.getNumber(),
+                candidatesPage.getSize(),
+                candidatesPage.getTotalElements(),
+                candidatesPage.getTotalPages()
+        );
+
+        return ResponseEntity.ok(response);
+    }*/
 
     @GetMapping("/user/applications")
     public ResponseEntity<PaginatedResponse<JobOfferWithCompanyDTO>> getUserJobApplications(

@@ -4,10 +4,9 @@ import com.example.cvfilter.dao.CompanyDao;
 import com.example.cvfilter.dao.CvInfoDao;
 import com.example.cvfilter.dao.UserDao;
 import com.example.cvfilter.dao.JobOfferDao;
-import com.example.cvfilter.dao.entity.Company;
-import com.example.cvfilter.dao.entity.CvInfo;
-import com.example.cvfilter.dao.entity.JobOffer;
-import com.example.cvfilter.dao.entity.User;
+import com.example.cvfilter.dao.entity.*;
+import com.example.cvfilter.dao.repository.CvScoresRepository;
+import com.example.cvfilter.dto.CvInfoDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
 import com.example.cvfilter.exception.CvUploadException;
 import com.example.cvfilter.exception.JobOfferNotFoundException;
@@ -40,6 +39,7 @@ public class CvUploadService implements CvUploadServiceInterface {
     private final CvInfoDao cvInfoDao;
     private final CompanyDao companyDao;
     private final CvExtractionServiceInterface cvExtractionService;
+    private final CvScoresRepository cvScoresRepository;
 
     @Value("${cv.storage.path:data}")
     private String storagePath;
@@ -47,12 +47,15 @@ public class CvUploadService implements CvUploadServiceInterface {
     @Value("${cv.log.file:cv_uploads.csv}")
     private String csvLogFile;
 
-    public CvUploadService(JobOfferDao jobOfferDao, UserDao userDao, CvInfoDao cvInfoDao, CompanyDao companyDao, CvExtractionServiceInterface cvExtractionService) {
+    public CvUploadService(JobOfferDao jobOfferDao, UserDao userDao, CvInfoDao cvInfoDao,
+                           CompanyDao companyDao, CvExtractionServiceInterface cvExtractionService,
+                           CvScoresRepository cvScoresRepository) {
         this.jobOfferDao = jobOfferDao;
         this.userDao = userDao;
         this.cvInfoDao = cvInfoDao;
         this.companyDao = companyDao;
         this.cvExtractionService = cvExtractionService;
+        this.cvScoresRepository = cvScoresRepository;
     }
 
     @Override
@@ -114,16 +117,28 @@ public class CvUploadService implements CvUploadServiceInterface {
             Path filePath = jobDir.resolve(uniqueFilename);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            CvInfo cvInfo = new CvInfo();
-            cvInfo.setUserId(user.getId());
-            cvInfo.setJobOfferId(jobId);
-            cvInfo.setCompanyId(jobOffer.getCompanyId());
-            cvInfo.setCvPath(filePath.toString());
-            cvInfo.setName(user.getUsername());  // Store username in name field
-            cvInfo.setEmail(user.getEmail());    // Store email in email field
-            cvInfo.setExtractedAt(LocalDateTime.now());
+            // ============ CORRECTION - Utilisez le service d'extraction ============
+            CvInfo cvInfo = cvExtractionService.extractAndSaveCvInfo(
+                    filePath.toFile(),       // Le fichier sauvegardé
+                    user.getId(),            // L'ID de l'utilisateur
+                    jobOffer.getCompanyId(), // L'ID de la compagnie
+                    jobId                    // L'ID du job
+            );
 
-            cvInfoDao.save(cvInfo);
+            // Mettre à jour le chemin du fichier
+            cvInfo.setCvPath(filePath.toString());
+
+            // S'assurer que les informations utilisateur sont définies
+            if (cvInfo.getName() == null || cvInfo.getName().trim().isEmpty()) {
+                cvInfo.setName(user.getUsername());
+            }
+            if (cvInfo.getEmail() == null || cvInfo.getEmail().trim().isEmpty()) {
+                cvInfo.setEmail(user.getEmail());
+            }
+
+            // Sauvegarder le CvInfo mis à jour
+            cvInfo = cvInfoDao.save(cvInfo);
+            // =======================================================================
 
             logCvUpload(user.getId(), filePath.toString());
 
@@ -132,8 +147,6 @@ public class CvUploadService implements CvUploadServiceInterface {
             throw new CvUploadException("Error while uploading CV", e);
         }
     }
-
-
 
     @Override
     public Page<CvInfo> getCandidatesForJobOffer(Long jobOfferId, int page, int size) {
@@ -144,13 +157,31 @@ public class CvUploadService implements CvUploadServiceInterface {
         return cvInfoDao.findByJobOfferIdWithAllFields(jobOfferId, pageable);
     }
 
-    /*public List<CvInfo> getCandidatesForJobOffer(Long jobOfferId) {
+    public Page<CvInfoDTO> getCandidatesWithScoresForJobOffer(Long jobOfferId, int page, int size) {
         if (!jobOfferDao.existsById(jobOfferId)) {
             throw new JobOfferNotFoundException("Job offer not found with ID: " + jobOfferId);
         }
-        return cvInfoDao.findByJobOfferIdWithAllFields(jobOfferId);
-    }*/
 
+        Pageable pageable = PageRequest.of(page, size);
+        Page<CvInfo> cvInfoPage = cvInfoDao.findByJobOfferIdWithAllFields(jobOfferId, pageable);
+
+        List<CvInfoDTO> dtos = cvInfoPage.getContent().stream()
+                .map(cvInfo -> {
+                    Optional<CvScores> cvScores = cvScoresRepository
+                            .findByUserIdAndJobOfferId(cvInfo.getUserId(), jobOfferId);
+
+                    if (cvScores.isPresent()) {
+                        return new CvInfoDTO(cvInfo, cvScores.get());
+                    } else {
+                        return new CvInfoDTO(cvInfo);
+                    }
+                })
+                .collect(Collectors.toList());
+
+        return new PageImpl<>(dtos, pageable, cvInfoPage.getTotalElements());
+    }
+
+    // ... Tous vos autres méthodes restent identiques
     public List<CvInfo> getUniqueCandidatesForJobOffer(Long jobOfferId) {
         if (!jobOfferDao.existsById(jobOfferId)) {
             throw new JobOfferNotFoundException("Job offer not found with ID: " + jobOfferId);
@@ -283,28 +314,4 @@ public class CvUploadService implements CvUploadServiceInterface {
 
         return new PageImpl<>(content, pageable, jobOfferIdsPage.getTotalElements());
     }
-
-    /*@Override
-    public List<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId) {
-        if (!userDao.existsById(userId)) {
-            throw new UserNotFoundException("User not found with ID: " + userId);
-        }
-
-        // Get the job offer IDs the user has applied to
-        List<Long> jobOfferIds = cvInfoDao.findDistinctJobOfferIdsByUserId(userId);
-
-        return jobOfferIds.stream()
-                .map(jobOfferId -> {
-                    JobOffer jobOffer = jobOfferDao.findById(jobOfferId)
-                            .orElseThrow(() -> new JobOfferNotFoundException(
-                                    "Job offer not found with ID: " + jobOfferId));
-
-                    Company company = companyDao.findById(jobOffer.getCompanyId())
-                            .orElse(null);
-
-                    return new JobOfferWithCompanyDTO(jobOffer, company);
-                })
-                .collect(Collectors.toList());
-    }*/
-
 }

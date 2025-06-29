@@ -1,6 +1,7 @@
 package com.example.cvfilter.service.impl;
 
 import com.example.cvfilter.dao.entity.CvInfo;
+import com.example.cvfilter.dto.CvInfoDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
 import org.springframework.data.domain.Page;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,6 +27,8 @@ public interface CvUploadServiceInterface {
     List<CvInfo> searchCandidatesByEducation(Long jobOfferId, String education);
     void updateCvInfo(Long cvInfoId, String name, String email, String phone,
                       String description, String skills, String experience, String education);
-    //List<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId);
     Page<JobOfferWithCompanyDTO> getJobOffersWithCompanyDetailsForUser(Long userId, int page, int size);
+    Page<CvInfoDTO> getCandidatesWithScoresForJobOffer(Long jobOfferId, int page, int size);
+    //Page<CvInfoDTO> getCandidatesWithScoresSortedForJobOffer(Long jobOfferId, int page, int size,
+     //                                                        String sortBy, String sortDirection);
 }

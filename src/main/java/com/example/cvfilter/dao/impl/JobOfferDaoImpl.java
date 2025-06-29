@@ -59,5 +59,10 @@ public class JobOfferDaoImpl implements JobOfferDao {
         return jobOfferRepository.findByCompanyIdAndFilters(companyId, active, employmentType, salary, companyName, jobTitle, pageable);
     }
 
+    @Override
+    public boolean existsByIdAndCompanyId(Long jobOfferId, Long companyId) {
+        return jobOfferRepository.existsByIdAndCompanyId(jobOfferId, companyId);
+    }
+
 
 }
