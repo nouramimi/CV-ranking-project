@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Fixed CV Organization Scorer - Windows Encoding Compatible
-"""
+
 
 import pandas as pd
 import argparse

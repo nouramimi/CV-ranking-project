@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-CV Job Matcher avec requête SQL corrigée
-Remplacez votre python/cv_job_matcher_spring.py par ce code
-"""
+
 
 import pandas as pd
 import argparse

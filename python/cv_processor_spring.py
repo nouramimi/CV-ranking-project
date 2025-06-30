@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-Optimized CV Processor for Spring Integration
-- Reduced processing time from minutes to seconds
-- Simple scoring without heavy AI/NLP
-- Direct CSV processing without database calls
-"""
+
 
 import pandas as pd
 import argparse
