@@ -21,5 +21,7 @@ public interface CompanyDao {
 
     boolean existsByName(String name);
 
+    boolean existsById(Long id);
+
 }
 

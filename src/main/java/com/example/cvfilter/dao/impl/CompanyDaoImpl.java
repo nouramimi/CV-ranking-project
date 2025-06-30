@@ -53,5 +53,10 @@ public class CompanyDaoImpl implements CompanyDao {
         return companyRepository.existsByName(name);
     }
 
+    @Override
+    public boolean existsById(Long id) {
+        return companyRepository.existsById(id);
+    }
+
 
 }

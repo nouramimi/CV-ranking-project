@@ -167,7 +167,6 @@ public class CvScores {
     public String getJobTitle() { return jobTitle; }
     public void setJobTitle(String jobTitle) { this.jobTitle = jobTitle; }
 
-    // Score final
     public BigDecimal getFinalScore() { return finalScore; }
     public void setFinalScore(Double finalScore) {
         this.finalScore = finalScore != null ? BigDecimal.valueOf(finalScore) : null;

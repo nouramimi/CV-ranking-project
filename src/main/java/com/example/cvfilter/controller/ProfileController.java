@@ -1,5 +1,6 @@
 package com.example.cvfilter.controller;
 
+import com.example.cvfilter.dao.UserDao;
 import com.example.cvfilter.dao.entity.User;
 import com.example.cvfilter.dao.repository.UserRepository;
 import com.example.cvfilter.dto.*;
@@ -24,7 +25,7 @@ public class ProfileController {
     private ProfileService profileService;
 
     @Autowired
-    private UserRepository userRepository;
+    private UserDao userRepository;
 
     @GetMapping
     public ResponseEntity<ProfileDto> getProfile() {

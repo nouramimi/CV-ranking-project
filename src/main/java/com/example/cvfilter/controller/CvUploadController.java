@@ -4,43 +4,93 @@ import com.example.cvfilter.config.JwtUtils;
 import com.example.cvfilter.dao.UserDao;
 import com.example.cvfilter.dao.entity.CvInfo;
 import com.example.cvfilter.dao.entity.User;
-import com.example.cvfilter.dto.CvInfoDTO;
-import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
-import com.example.cvfilter.dto.JobOfferWithScoreDTO;
-import com.example.cvfilter.dto.PaginatedResponse;
+import com.example.cvfilter.dto.*;
 import com.example.cvfilter.exception.UserNotFoundException;
+import com.example.cvfilter.service.CvUploadService;
 import com.example.cvfilter.service.impl.AuthorizationServiceInterface;
-import com.example.cvfilter.service.impl.CvUploadServiceInterface;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/cv")
 public class CvUploadController {
 
-    private final CvUploadServiceInterface cvUploadService;
+    private final CvUploadService cvUploadService;
     private final JwtUtils jwtUtils;
     private final AuthorizationServiceInterface authorizationService;
     private final UserDao userDao;
 
-
-    public CvUploadController(CvUploadServiceInterface cvUploadService, JwtUtils jwtUtils, AuthorizationServiceInterface authorizationService, UserDao userDao) {
+    public CvUploadController(CvUploadService cvUploadService, JwtUtils jwtUtils,
+                              AuthorizationServiceInterface authorizationService, UserDao userDao) {
         this.cvUploadService = cvUploadService;
         this.jwtUtils = jwtUtils;
         this.authorizationService = authorizationService;
         this.userDao = userDao;
     }
 
+    // === NOUVELLES MÉTHODES UTILISANT LES DTOs ===
+
     @PostMapping("/upload/{jobId}")
+    public ResponseEntity<CvUploadResponseDto> uploadCvWithDto(@PathVariable Long jobId,
+                                                               @RequestParam("file") MultipartFile file,
+                                                               HttpServletRequest request) {
+        String email = extractEmailFromRequest(request);
+        CvUploadResponseDto response = cvUploadService.uploadCvWithDto(jobId, file, email);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/user/cvs")
+    public ResponseEntity<List<CvInfoResponseDto>> getUserCvsDto(HttpServletRequest request) {
+        String email = extractEmailFromRequest(request);
+        Long userId = authorizationService.getUserIdByEmail(email);
+        List<CvInfoResponseDto> cvInfos = cvUploadService.getCvInfosByUserDto(userId);
+        return ResponseEntity.ok(cvInfos);
+    }
+
+    @GetMapping("/company/{companyId}/cvs")
+    public ResponseEntity<List<CvInfoResponseDto>> getCompanyCvsDto(@PathVariable Long companyId) {
+        List<CvInfoResponseDto> cvInfos = cvUploadService.getCvInfosByCompanyDto(companyId);
+        return ResponseEntity.ok(cvInfos);
+    }
+
+    @GetMapping("/job/{jobId}/search/skills")
+    public ResponseEntity<List<CvInfoResponseDto>> searchBySkillsDto(@PathVariable Long jobId,
+                                                                     @RequestParam String skill) {
+        List<CvInfoResponseDto> cvInfos = cvUploadService.searchCandidatesBySkillsDto(jobId, skill);
+        return ResponseEntity.ok(cvInfos);
+    }
+
+    @GetMapping("/job/{jobId}/search/experience")
+    public ResponseEntity<List<CvInfoResponseDto>> searchByExperienceDto(@PathVariable Long jobId,
+                                                                         @RequestParam String experience) {
+        List<CvInfoResponseDto> cvInfos = cvUploadService.searchCandidatesByExperienceDto(jobId, experience);
+        return ResponseEntity.ok(cvInfos);
+    }
+
+    @GetMapping("/job/{jobId}/search/education")
+    public ResponseEntity<List<CvInfoResponseDto>> searchByEducationDto(@PathVariable Long jobId,
+                                                                        @RequestParam String education) {
+        List<CvInfoResponseDto> cvInfos = cvUploadService.searchCandidatesByEducationDto(jobId, education);
+        return ResponseEntity.ok(cvInfos);
+    }
+
+    @PutMapping("/{cvInfoId}/update-info")
+    public ResponseEntity<Void> updateCvInfoWithDto(@PathVariable Long cvInfoId,
+                                                    @Valid @RequestBody UpdateCvInfoDto updateDto) {
+        cvUploadService.updateCvInfoWithDto(cvInfoId, updateDto);
+        return ResponseEntity.ok().build();
+    }
+
+    // === MÉTHODES HÉRITÉES POUR COMPATIBILITÉ ===
+
+    @PostMapping("/upload-legacy/{jobId}")
     public ResponseEntity<String> uploadCv(@PathVariable Long jobId,
                                            @RequestParam("file") MultipartFile file,
                                            HttpServletRequest request) throws IOException {
@@ -96,79 +146,6 @@ public class CvUploadController {
         return ResponseEntity.ok(response);
     }
 
-    /*@GetMapping("/job/{jobId}/candidates")
-    public ResponseEntity<PaginatedResponse<CvInfoDTO>> getCandidatesForJob(
-            @PathVariable Long jobId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "false") boolean includeScores,
-            @RequestParam(defaultValue = "finalScore") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDirection) {
-
-        Page<CvInfoDTO> candidatesPage;
-
-        if (includeScores) {
-            candidatesPage = cvUploadService.getCandidatesWithScoresSortedForJobOffer(
-                    jobId, page, size, sortBy, sortDirection);
-        } else {
-            Page<CvInfo> cvInfos = cvUploadService.getCandidatesForJobOffer(jobId, page, size);
-            List<CvInfoDTO> dtos = cvInfos.getContent().stream()
-                    .map(CvInfoDTO::new)
-                    .collect(Collectors.toList());
-
-            candidatesPage = new PageImpl<>(dtos,
-                    PageRequest.of(page, size),
-                    cvInfos.getTotalElements());
-        }
-
-        PaginatedResponse<CvInfoDTO> response = new PaginatedResponse<>(
-                candidatesPage.getContent(),
-                candidatesPage.getNumber(),
-                candidatesPage.getSize(),
-                candidatesPage.getTotalElements(),
-                candidatesPage.getTotalPages()
-        );
-
-        return ResponseEntity.ok(response);
-    }*/
-
-    /*@GetMapping("/user/applications")
-    public ResponseEntity<PaginatedResponse<JobOfferWithCompanyDTO>> getUserJobApplications(
-            @RequestParam(required = false) Long userId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            HttpServletRequest request) {
-
-        if (userId == null) {
-            String email = extractEmailFromRequest(request);
-            User user = userDao.findByEmail(email)
-                    .orElseThrow(() -> new UserNotFoundException("User not found"));
-            userId = user.getId();
-        }
-
-        Page<JobOfferWithCompanyDTO> jobOffers =
-                cvUploadService.getJobOffersWithCompanyDetailsForUser(userId, page, size);
-
-        PaginatedResponse<JobOfferWithCompanyDTO> response = new PaginatedResponse<>(
-                jobOffers.getContent(),
-                jobOffers.getNumber(),
-                jobOffers.getSize(),
-                jobOffers.getTotalElements(),
-                jobOffers.getTotalPages()
-        );
-
-        return ResponseEntity.ok(response);
-    }*/
-
-    /*@GetMapping("/job/{jobId}/candidates")
-    public ResponseEntity<List<CvInfoDTO>> getCandidatesForJob(@PathVariable Long jobId) {
-        List<CvInfo> cvInfos = cvUploadService.getCandidatesForJobOffer(jobId);
-        List<CvInfoDTO> dtos = cvInfos.stream()
-                .map(CvInfoDTO::new)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(dtos);
-    }*/
-
     @GetMapping("/job/{jobId}/unique-candidates")
     public ResponseEntity<List<CvInfo>> getUniqueCandidatesForJob(@PathVariable Long jobId) {
         return ResponseEntity.ok(cvUploadService.getUniqueCandidatesForJobOffer(jobId));
@@ -184,24 +161,6 @@ public class CvUploadController {
         return ResponseEntity.ok(cvUploadService.getCandidatesWithExtractedInfo(jobId));
     }
 
-    /*@GetMapping("/user/applications")
-    public ResponseEntity<List<JobOfferWithCompanyDTO>> getUserJobApplications(
-            @RequestParam(required = false) Long userId,
-            HttpServletRequest request) {
-
-        // Get user ID from authentication if not provided
-        if (userId == null) {
-            String email = extractEmailFromRequest(request);
-            User user = userDao.findByEmail(email)
-                    .orElseThrow(() -> new UserNotFoundException("User not found"));
-            userId = user.getId();
-        }
-
-        List<JobOfferWithCompanyDTO> jobOffers =
-                cvUploadService.getJobOffersWithCompanyDetailsForUser(userId);
-        return ResponseEntity.ok(jobOffers);
-    }*/
-
     @GetMapping("/user/has-applied/{jobId}")
     public ResponseEntity<Boolean> hasUserAppliedToJob(@PathVariable Long jobId,
                                                        HttpServletRequest request) {
@@ -210,37 +169,37 @@ public class CvUploadController {
         return ResponseEntity.ok(cvUploadService.hasUserAppliedToJob(jobId, userId));
     }
 
-    @GetMapping("/user/cvs")
+    @GetMapping("/user/cvs-legacy")
     public ResponseEntity<List<CvInfo>> getUserCvs(HttpServletRequest request) {
         String email = extractEmailFromRequest(request);
         Long userId = authorizationService.getUserIdByEmail(email);
         return ResponseEntity.ok(cvUploadService.getCvInfosByUser(userId));
     }
 
-    @GetMapping("/company/{companyId}/cvs")
+    @GetMapping("/company/{companyId}/cvs-legacy")
     public ResponseEntity<List<CvInfo>> getCompanyCvs(@PathVariable Long companyId) {
         return ResponseEntity.ok(cvUploadService.getCvInfosByCompany(companyId));
     }
 
-    @GetMapping("/job/{jobId}/search/skills")
+    @GetMapping("/job/{jobId}/search/skills-legacy")
     public ResponseEntity<List<CvInfo>> searchBySkills(@PathVariable Long jobId,
                                                        @RequestParam String skill) {
         return ResponseEntity.ok(cvUploadService.searchCandidatesBySkills(jobId, skill));
     }
 
-    @GetMapping("/job/{jobId}/search/experience")
+    @GetMapping("/job/{jobId}/search/experience-legacy")
     public ResponseEntity<List<CvInfo>> searchByExperience(@PathVariable Long jobId,
                                                            @RequestParam String experience) {
         return ResponseEntity.ok(cvUploadService.searchCandidatesByExperience(jobId, experience));
     }
 
-    @GetMapping("/job/{jobId}/search/education")
+    @GetMapping("/job/{jobId}/search/education-legacy")
     public ResponseEntity<List<CvInfo>> searchByEducation(@PathVariable Long jobId,
                                                           @RequestParam String education) {
         return ResponseEntity.ok(cvUploadService.searchCandidatesByEducation(jobId, education));
     }
 
-    @PutMapping("/{cvInfoId}/update-info")
+    @PutMapping("/{cvInfoId}/update-info-legacy")
     public ResponseEntity<Void> updateCvInfo(@PathVariable Long cvInfoId,
                                              @RequestParam(required = false) String name,
                                              @RequestParam(required = false) String email,
@@ -252,6 +211,7 @@ public class CvUploadController {
         cvUploadService.updateCvInfo(cvInfoId, name, email, phone, description, skills, experience, education);
         return ResponseEntity.ok().build();
     }
+
 
     private String extractEmailFromRequest(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");

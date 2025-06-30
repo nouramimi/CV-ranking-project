@@ -26,7 +26,6 @@ public class CvInfoDTO {
     private String userEmail;      // From User entity
     private CvScoreInfo cvScores;
 
-    // Default constructor
     public CvInfoDTO() {}
 
     public CvInfoDTO(CvInfo cvInfo) {
@@ -45,7 +44,6 @@ public class CvInfoDTO {
         this.userId = cvInfo.getUserId();
         this.highestDegree = cvInfo.getHighestDegree();
 
-        // Handle user relationship safely - check if User entity is loaded
         if (cvInfo.getUser() != null) {
             this.userUsername = cvInfo.getUser().getUsername();
             this.userEmail = cvInfo.getUser().getEmail();

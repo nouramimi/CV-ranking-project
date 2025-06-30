@@ -4,6 +4,7 @@ import com.example.cvfilter.config.JwtUtils;
 import com.example.cvfilter.dao.entity.Company;
 import com.example.cvfilter.dao.entity.JobOffer;
 import com.example.cvfilter.dto.JobOfferDTO;
+import com.example.cvfilter.dto.JobOfferCreateDTO;
 import com.example.cvfilter.dto.JobOfferWithCompanyDTO;
 import com.example.cvfilter.dto.PaginatedResponse;
 import com.example.cvfilter.exception.JobOfferNotFoundException;
@@ -11,8 +12,6 @@ import com.example.cvfilter.service.impl.JobOfferServiceInterface;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/job-offers")
@@ -27,9 +26,10 @@ public class JobOfferController {
     }
 
     @PostMapping("/create")
-    public ResponseEntity<JobOfferDTO> create(@RequestBody JobOffer offer, HttpServletRequest request) {
+    public ResponseEntity<JobOfferDTO> create(@RequestBody JobOfferCreateDTO jobOfferCreateDTO,
+                                              HttpServletRequest request) {
         String email = extractEmailFromRequest(request);
-        JobOfferDTO createdOffer = service.create(offer, email);
+        JobOfferDTO createdOffer = service.create(jobOfferCreateDTO, email);
         return ResponseEntity.ok(createdOffer);
     }
 
@@ -51,9 +51,6 @@ public class JobOfferController {
         return ResponseEntity.ok(response);
     }
 
-
-
-
     @GetMapping("/getById/{id}")
     public ResponseEntity<JobOfferDTO> getById(@PathVariable Long id, HttpServletRequest request) {
         String email = extractEmailFromRequest(request);
@@ -64,7 +61,7 @@ public class JobOfferController {
 
     @PutMapping("/update/{id}")
     public ResponseEntity<JobOfferDTO> update(@PathVariable Long id,
-                                              @RequestBody JobOffer updated,
+                                              @RequestBody JobOfferDTO updated,
                                               HttpServletRequest request) {
         String email = extractEmailFromRequest(request);
         return service.update(id, updated, email)
@@ -90,10 +87,10 @@ public class JobOfferController {
         throw new JobOfferNotFoundException("Cannot deactivate: Job offer not found with ID: " + id);
     }
 
-
     @GetMapping("/description/{id}")
     public ResponseEntity<String> getJobDescription(@PathVariable Long id, HttpServletRequest request) {
-        String email = extractEmailFromRequest(request);String description = service.getJobDescription(id, email);
+        String email = extractEmailFromRequest(request);
+        String description = service.getJobDescription(id, email);
         if (description != null) {
             return ResponseEntity.ok(description);
         }
@@ -112,18 +109,14 @@ public class JobOfferController {
 
     private String extractEmailFromRequest(HttpServletRequest request) {
         String authHeader = request.getHeader("Authorization");
-
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new IllegalArgumentException("Invalid authorization header");
         }
-
         String token = authHeader.substring(7);
         String email = jwtUtils.extractEmail(token);
-
         if (email == null) {
             throw new IllegalArgumentException("Unable to extract email from token");
         }
-
         return email;
     }
 }

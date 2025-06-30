@@ -1,6 +1,8 @@
 package com.example.cvfilter.controller;
 
 import com.example.cvfilter.dao.entity.CvScores;
+import com.example.cvfilter.dto.*;
+import com.example.cvfilter.mapper.CvScoresMapper;
 import com.example.cvfilter.service.CvScoresService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +29,266 @@ public class CvScoresController {
     @Autowired
     private CvScoresService cvScoresService;
 
+    @Autowired
+    private CvScoresMapper cvScoresMapper;
+
+    // === NOUVELLES MÉTHODES UTILISANT LES DTOs ===
+
     @GetMapping("/user/{userId}/job/{jobOfferId}")
+    public ResponseEntity<CvScoresResponseDto> getCvScoreDto(
+            @PathVariable Long userId,
+            @PathVariable Long jobOfferId) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting CV score for user={}, job={} by user={}", userId, jobOfferId, userEmail);
+
+        Optional<CvScores> cvScore = cvScoresService.getCvScore(userEmail, userId, jobOfferId);
+
+        if (cvScore.isPresent()) {
+            CvScoresResponseDto responseDto = cvScoresMapper.cvScoresToResponseDto(cvScore.get());
+            return ResponseEntity.ok(responseDto);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/job/{jobOfferId}")
+    public ResponseEntity<PaginatedResponse<CvScoresResponseDto>> getScoresForJobOfferDto(
+            @PathVariable Long jobOfferId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "finalScore") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting scores for job offer {} by user {} - page: {}, size: {}",
+                jobOfferId, userEmail, page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ?
+                Sort.by(sortBy).descending() :
+                Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<CvScores> scores = cvScoresService.getScoresForJobOffer(userEmail, jobOfferId, pageable);
+        PaginatedResponse<CvScoresResponseDto> response = cvScoresMapper.toPageDto(scores);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/job/{jobOfferId}/top")
+    public ResponseEntity<PaginatedResponse<CvScoresResponseDto>> getTopCvsForJobDto(
+            @PathVariable Long jobOfferId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting top CVs for job {} by user {} - page: {}, size: {}",
+                jobOfferId, userEmail, page, size);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("finalScore").descending());
+
+        Page<CvScores> topCvs = cvScoresService.getTopCvsForJob(userEmail, jobOfferId, pageable);
+        PaginatedResponse<CvScoresResponseDto> response = cvScoresMapper.toPageDto(topCvs);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<PaginatedResponse<CvScoresResponseDto>> getScoresForUserDto(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "processedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting scores for user {} by user {} - page: {}, size: {}",
+                userId, userEmail, page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ?
+                Sort.by(sortBy).descending() :
+                Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Page<CvScores> scores = cvScoresService.getScoresForUser(userEmail, userId, pageable);
+        PaginatedResponse<CvScoresResponseDto> response = cvScoresMapper.toPageDto(scores);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/my-scores")
+    public ResponseEntity<PaginatedResponse<CvScoresResponseDto>> getMyScoresDto(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "processedAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting own scores for user {} - page: {}, size: {}", userEmail, page, size);
+
+        Sort sort = sortDir.equalsIgnoreCase("desc") ?
+                Sort.by(sortBy).descending() :
+                Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(page, size, sort);
+
+        Long currentUserId = cvScoresService.getCurrentUserId(userEmail);
+        Page<CvScores> scores = cvScoresService.getScoresForUser(userEmail, currentUserId, pageable);
+        PaginatedResponse<CvScoresResponseDto> response = cvScoresMapper.toPageDto(scores);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/high-scoring")
+    public ResponseEntity<PaginatedResponse<CvScoresResponseDto>> getHighScoringCvsDto(
+            @RequestParam(defaultValue = "80.0") double minScore,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting high scoring CVs (>= {}) by user {} - page: {}, size: {}",
+                minScore, userEmail, page, size);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("finalScore").descending());
+
+        Page<CvScores> highScoringCvs = cvScoresService.getHighScoringCvs(userEmail, minScore, pageable);
+        PaginatedResponse<CvScoresResponseDto> response = cvScoresMapper.toPageDto(highScoringCvs);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/job/{jobOfferId}/stats")
+    public ResponseEntity<JobOfferDetailedStatsDto> getJobOfferDetailedStatsDto(
+            @PathVariable Long jobOfferId) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting detailed stats for job {} by user {}", jobOfferId, userEmail);
+
+        CvScoresService.JobOfferDetailedStats stats = cvScoresService.getJobOfferDetailedStats(userEmail, jobOfferId);
+        JobOfferDetailedStatsDto statsDto = cvScoresMapper.toJobOfferDetailedStatsDto(stats);
+
+        return ResponseEntity.ok(statsDto);
+    }
+
+    @GetMapping("/user/{userId}/job/{jobOfferId}/rank")
+    public ResponseEntity<CvRankResponseDto> getCvRankForJobDto(
+            @PathVariable Long userId,
+            @PathVariable Long jobOfferId) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting rank for CV user={}, job={} by user={}", userId, jobOfferId, userEmail);
+
+        Long rank = cvScoresService.getCvRankForJob(userEmail, userId, jobOfferId);
+
+        if (rank != null) {
+            CvRankResponseDto response = cvScoresMapper.createCvRankResponseDto(userId, jobOfferId, rank);
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/my-rank/job/{jobOfferId}")
+    public ResponseEntity<CvRankResponseDto> getMyRankForJobDto(@PathVariable Long jobOfferId) {
+        String userEmail = getCurrentUserEmail();
+        Long currentUserId = cvScoresService.getCurrentUserId(userEmail);
+
+        logger.info("Getting own rank for job {} by user {}", jobOfferId, userEmail);
+
+        Long rank = cvScoresService.getCvRankForJob(userEmail, currentUserId, jobOfferId);
+
+        if (rank != null) {
+            CvRankResponseDto response = cvScoresMapper.createCvRankResponseDto(currentUserId, jobOfferId, rank);
+            return ResponseEntity.ok(response);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @GetMapping("/user/{userId}/job/{jobOfferId}/exists")
+    public ResponseEntity<CvExistsResponseDto> checkCvScoredDto(
+            @PathVariable Long userId,
+            @PathVariable Long jobOfferId) {
+
+        String userEmail = getCurrentUserEmail();
+
+        // Vérifier l'autorisation d'accès à cette information
+        try {
+            cvScoresService.getCvScore(userEmail, userId, jobOfferId);
+            boolean exists = cvScoresService.isCvScored(userId, jobOfferId);
+            CvExistsResponseDto response = cvScoresMapper.createCvExistsResponseDto(userId, jobOfferId, exists);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            CvExistsResponseDto response = cvScoresMapper.createCvExistsResponseDto(userId, jobOfferId, false);
+            return ResponseEntity.ok(response);
+        }
+    }
+
+    @GetMapping("/summary")
+    public ResponseEntity<GlobalScoresSummaryDto> getGlobalSummaryDto() {
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting global summary by user {}", userEmail);
+
+        CvScoresService.GlobalScoresSummary summary = cvScoresService.getGlobalSummary(userEmail);
+        GlobalScoresSummaryDto summaryDto = cvScoresMapper.toGlobalScoresSummaryDto(summary);
+
+        return ResponseEntity.ok(summaryDto);
+    }
+
+    @DeleteMapping("/user/{userId}/job/{jobOfferId}")
+    public ResponseEntity<DeleteResponseDto> deleteCvScoreDto(
+            @PathVariable Long userId,
+            @PathVariable Long jobOfferId) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Deleting CV score for user={}, job={} by user={}", userId, jobOfferId, userEmail);
+
+        boolean deleted = cvScoresService.deleteCvScore(userEmail, userId, jobOfferId);
+
+        DeleteResponseDto response;
+        if (deleted) {
+            response = cvScoresMapper.createDeleteResponseDto(userId, jobOfferId, true, "Score deleted successfully");
+        } else {
+            response = cvScoresMapper.createDeleteResponseDto(userId, jobOfferId, false, "Failed to delete score");
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/match-level/{level}")
+    public ResponseEntity<PaginatedResponse<CvScoresResponseDto>> getCvsByMatchLevelDto(
+            @PathVariable String level,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Getting CVs with match level {} by user {} - page: {}, size: {}",
+                level, userEmail, page, size);
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by("finalScore").descending());
+
+        Page<CvScores> cvs = cvScoresService.getCvsByMatchLevel(userEmail, level.toUpperCase(), pageable);
+        PaginatedResponse<CvScoresResponseDto> response = cvScoresMapper.toPageDto(cvs);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/job/{jobOfferId}/compare")
+    public ResponseEntity<CvComparisonResponseDto> compareCvsDto(
+            @PathVariable Long jobOfferId,
+            @RequestParam List<Long> userIds) {
+
+        String userEmail = getCurrentUserEmail();
+        logger.info("Comparing {} CVs for job {} by user {}", userIds.size(), jobOfferId, userEmail);
+
+        CvScoresService.CvComparisonResponse comparison = cvScoresService.compareCvs(userEmail, jobOfferId, userIds);
+        CvComparisonResponseDto comparisonDto = cvScoresMapper.toCvComparisonResponseDto(comparison);
+
+        return ResponseEntity.ok(comparisonDto);
+    }
+
+    // === MÉTHODES HÉRITÉES POUR COMPATIBILITÉ ===
+
+    @GetMapping("/legacy/user/{userId}/job/{jobOfferId}")
     public ResponseEntity<CvScores> getCvScore(
             @PathVariable Long userId,
             @PathVariable Long jobOfferId) {
@@ -43,7 +304,8 @@ public class CvScoresController {
             return ResponseEntity.notFound().build();
         }
     }
-    @GetMapping("/job/{jobOfferId}")
+
+    @GetMapping("/legacy/job/{jobOfferId}")
     public ResponseEntity<Page<CvScores>> getScoresForJobOffer(
             @PathVariable Long jobOfferId,
             @RequestParam(defaultValue = "0") int page,
@@ -64,8 +326,7 @@ public class CvScoresController {
         return ResponseEntity.ok(scores);
     }
 
-
-    @GetMapping("/job/{jobOfferId}/top")
+    @GetMapping("/legacy/job/{jobOfferId}/top")
     public ResponseEntity<Page<CvScores>> getTopCvsForJob(
             @PathVariable Long jobOfferId,
             @RequestParam(defaultValue = "0") int page,
@@ -81,7 +342,7 @@ public class CvScoresController {
         return ResponseEntity.ok(topCvs);
     }
 
-    @GetMapping("/user/{userId}")
+    @GetMapping("/legacy/user/{userId}")
     public ResponseEntity<Page<CvScores>> getScoresForUser(
             @PathVariable Long userId,
             @RequestParam(defaultValue = "0") int page,
@@ -102,7 +363,7 @@ public class CvScoresController {
         return ResponseEntity.ok(scores);
     }
 
-    @GetMapping("/my-scores")
+    @GetMapping("/legacy/my-scores")
     public ResponseEntity<Page<CvScores>> getMyScores(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -122,7 +383,7 @@ public class CvScoresController {
         return ResponseEntity.ok(scores);
     }
 
-    @GetMapping("/high-scoring")
+    @GetMapping("/legacy/high-scoring")
     public ResponseEntity<Page<CvScores>> getHighScoringCvs(
             @RequestParam(defaultValue = "80.0") double minScore,
             @RequestParam(defaultValue = "0") int page,
@@ -138,7 +399,7 @@ public class CvScoresController {
         return ResponseEntity.ok(highScoringCvs);
     }
 
-    @GetMapping("/job/{jobOfferId}/stats")
+    @GetMapping("/legacy/job/{jobOfferId}/stats")
     public ResponseEntity<CvScoresService.JobOfferDetailedStats> getJobOfferDetailedStats(
             @PathVariable Long jobOfferId) {
 
@@ -149,7 +410,7 @@ public class CvScoresController {
         return ResponseEntity.ok(stats);
     }
 
-    @GetMapping("/user/{userId}/job/{jobOfferId}/rank")
+    @GetMapping("/legacy/user/{userId}/job/{jobOfferId}/rank")
     public ResponseEntity<CvRankResponse> getCvRankForJob(
             @PathVariable Long userId,
             @PathVariable Long jobOfferId) {
@@ -166,7 +427,7 @@ public class CvScoresController {
         }
     }
 
-    @GetMapping("/my-rank/job/{jobOfferId}")
+    @GetMapping("/legacy/my-rank/job/{jobOfferId}")
     public ResponseEntity<CvRankResponse> getMyRankForJob(@PathVariable Long jobOfferId) {
         String userEmail = getCurrentUserEmail();
         Long currentUserId = cvScoresService.getCurrentUserId(userEmail);
@@ -182,14 +443,13 @@ public class CvScoresController {
         }
     }
 
-    @GetMapping("/user/{userId}/job/{jobOfferId}/exists")
+    @GetMapping("/legacy/user/{userId}/job/{jobOfferId}/exists")
     public ResponseEntity<CvExistsResponse> checkCvScored(
             @PathVariable Long userId,
             @PathVariable Long jobOfferId) {
 
         String userEmail = getCurrentUserEmail();
 
-        // Vérifier l'autorisation d'accès à cette information
         try {
             cvScoresService.getCvScore(userEmail, userId, jobOfferId);
             boolean exists = cvScoresService.isCvScored(userId, jobOfferId);
@@ -199,7 +459,7 @@ public class CvScoresController {
         }
     }
 
-    @GetMapping("/summary")
+    @GetMapping("/legacy/summary")
     public ResponseEntity<CvScoresService.GlobalScoresSummary> getGlobalSummary() {
         String userEmail = getCurrentUserEmail();
         logger.info("Getting global summary by user {}", userEmail);
@@ -216,7 +476,7 @@ public class CvScoresController {
         return ResponseEntity.ok(count);
     }
 
-    @DeleteMapping("/user/{userId}/job/{jobOfferId}")
+    @DeleteMapping("/legacy/user/{userId}/job/{jobOfferId}")
     public ResponseEntity<DeleteResponse> deleteCvScore(
             @PathVariable Long userId,
             @PathVariable Long jobOfferId) {
@@ -233,7 +493,7 @@ public class CvScoresController {
         }
     }
 
-    @GetMapping("/match-level/{level}")
+    @GetMapping("/legacy/match-level/{level}")
     public ResponseEntity<Page<CvScores>> getCvsByMatchLevel(
             @PathVariable String level,
             @RequestParam(defaultValue = "0") int page,
@@ -249,7 +509,7 @@ public class CvScoresController {
         return ResponseEntity.ok(cvs);
     }
 
-    @GetMapping("/job/{jobOfferId}/compare")
+    @GetMapping("/legacy/job/{jobOfferId}/compare")
     public ResponseEntity<CvScoresService.CvComparisonResponse> compareCvs(
             @PathVariable Long jobOfferId,
             @RequestParam List<Long> userIds) {
@@ -261,6 +521,8 @@ public class CvScoresController {
         return ResponseEntity.ok(comparison);
     }
 
+    // === MÉTHODE UTILITAIRE ===
+
     private String getCurrentUserEmail() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.isAuthenticated()) {
@@ -268,6 +530,8 @@ public class CvScoresController {
         }
         throw new RuntimeException("No authenticated user found");
     }
+
+    // === CLASSES INTERNES LEGACY ===
 
     public static class CvRankResponse {
         private final Long userId;
@@ -319,5 +583,4 @@ public class CvScoresController {
         public boolean isSuccess() { return success; }
         public String getMessage() { return message; }
     }
-
 }

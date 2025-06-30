@@ -5,10 +5,11 @@ import com.example.cvfilter.dao.entity.CvScores;
 import com.example.cvfilter.dao.entity.Role;
 import com.example.cvfilter.dao.entity.User;
 import com.example.cvfilter.dao.entity.HRManager;
-import com.example.cvfilter.dao.entity.Company;
 import com.example.cvfilter.dao.repository.CvScoresRepository;
 import com.example.cvfilter.dao.repository.JobOfferRepository;
+import com.example.cvfilter.dto.*;
 import com.example.cvfilter.exception.UnauthorizedAccessException;
+import com.example.cvfilter.mapper.CvScoresMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,6 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -38,6 +38,104 @@ public class CvScoresService {
 
     @Autowired
     private JobOfferRepository jobOfferRepository;
+
+    @Autowired
+    private CvScoresMapper cvScoresMapper;
+
+    // === NOUVELLES MÉTHODES UTILISANT LES DTOs ===
+
+    public Optional<CvScoresResponseDto> getCvScoreDto(String userEmail, Long targetUserId, Long jobOfferId) {
+        logger.debug("Getting CV score DTO for target user={}, job={} by user={}", targetUserId, jobOfferId, userEmail);
+
+        Optional<CvScores> cvScore = getCvScore(userEmail, targetUserId, jobOfferId);
+        return cvScore.map(cvScoresMapper::cvScoresToResponseDto);
+    }
+
+    public PaginatedResponse<CvScoresResponseDto> getScoresForJobOfferDto(String userEmail, Long jobOfferId, Pageable pageable) {
+        logger.info("Getting scores DTO for job offer {} by user {} with pagination", jobOfferId, userEmail);
+
+        Page<CvScores> scores = getScoresForJobOffer(userEmail, jobOfferId, pageable);
+        return cvScoresMapper.toPageDto(scores);
+    }
+
+    public PaginatedResponse<CvScoresResponseDto> getTopCvsForJobDto(String userEmail, Long jobOfferId, Pageable pageable) {
+        logger.info("Getting top CVs DTO for job {} by user {} with pagination", jobOfferId, userEmail);
+
+        Page<CvScores> topCvs = getTopCvsForJob(userEmail, jobOfferId, pageable);
+        return cvScoresMapper.toPageDto(topCvs);
+    }
+
+    public PaginatedResponse<CvScoresResponseDto> getScoresForUserDto(String userEmail, Long targetUserId, Pageable pageable) {
+        logger.info("Getting scores DTO for user {} by user {} with pagination", targetUserId, userEmail);
+
+        Page<CvScores> scores = getScoresForUser(userEmail, targetUserId, pageable);
+        return cvScoresMapper.toPageDto(scores);
+    }
+
+    public PaginatedResponse<CvScoresResponseDto> getHighScoringCvsDto(String userEmail, double minScore, Pageable pageable) {
+        logger.info("Getting high scoring CVs DTO (>= {}) by user {} with pagination", minScore, userEmail);
+
+        Page<CvScores> highScoringCvs = getHighScoringCvs(userEmail, minScore, pageable);
+        return cvScoresMapper.toPageDto(highScoringCvs);
+    }
+
+    public JobOfferDetailedStatsDto getJobOfferDetailedStatsDto(String userEmail, Long jobOfferId) {
+        logger.info("Getting detailed stats DTO for job {} by user {}", jobOfferId, userEmail);
+
+        JobOfferDetailedStats stats = getJobOfferDetailedStats(userEmail, jobOfferId);
+        return cvScoresMapper.toJobOfferDetailedStatsDto(stats);
+    }
+
+    public CvRankResponseDto getCvRankForJobDto(String userEmail, Long targetUserId, Long jobOfferId) {
+        logger.info("Getting rank DTO for CV user={}, job={} by user={}", targetUserId, jobOfferId, userEmail);
+
+        Long rank = getCvRankForJob(userEmail, targetUserId, jobOfferId);
+        if (rank != null) {
+            return cvScoresMapper.createCvRankResponseDto(targetUserId, jobOfferId, rank);
+        }
+        return null;
+    }
+
+    public CvExistsResponseDto checkCvScoredDto(String userEmail, Long userId, Long jobOfferId) {
+        try {
+            getCvScore(userEmail, userId, jobOfferId);
+            boolean exists = isCvScored(userId, jobOfferId);
+            return cvScoresMapper.createCvExistsResponseDto(userId, jobOfferId, exists);
+        } catch (Exception e) {
+            return cvScoresMapper.createCvExistsResponseDto(userId, jobOfferId, false);
+        }
+    }
+
+    public GlobalScoresSummaryDto getGlobalSummaryDto(String userEmail) {
+        logger.info("Getting global summary DTO by user {}", userEmail);
+
+        GlobalScoresSummary summary = getGlobalSummary(userEmail);
+        return cvScoresMapper.toGlobalScoresSummaryDto(summary);
+    }
+
+    public DeleteResponseDto deleteCvScoreDto(String userEmail, Long targetUserId, Long jobOfferId) {
+        logger.info("Deleting CV score DTO for user={}, job={} by user={}", targetUserId, jobOfferId, userEmail);
+
+        boolean deleted = deleteCvScore(userEmail, targetUserId, jobOfferId);
+        String message = deleted ? "Score deleted successfully" : "Failed to delete score";
+        return cvScoresMapper.createDeleteResponseDto(targetUserId, jobOfferId, deleted, message);
+    }
+
+    public PaginatedResponse<CvScoresResponseDto> getCvsByMatchLevelDto(String userEmail, String matchLevel, Pageable pageable) {
+        logger.info("Getting CVs DTO with match level {} by user {} with pagination", matchLevel, userEmail);
+
+        Page<CvScores> cvs = getCvsByMatchLevel(userEmail, matchLevel, pageable);
+        return cvScoresMapper.toPageDto(cvs);
+    }
+
+    public CvComparisonResponseDto compareCvsDto(String userEmail, Long jobOfferId, List<Long> userIds) {
+        logger.info("Comparing {} CVs DTO for job {} by user {}", userIds.size(), jobOfferId, userEmail);
+
+        CvComparisonResponse comparison = compareCvs(userEmail, jobOfferId, userIds);
+        return cvScoresMapper.toCvComparisonResponseDto(comparison);
+    }
+
+    // === MÉTHODES HÉRITÉES (LOGIC MÉTIER CORE) ===
 
     public Optional<CvScores> getCvScore(String userEmail, Long targetUserId, Long jobOfferId) {
         logger.debug("Getting CV score for target user={}, job={} by user={}", targetUserId, jobOfferId, userEmail);
@@ -207,37 +305,6 @@ public class CvScoresService {
                     jobOfferId, score.getFinalScore());
         }
         return null;
-    }
-
-    private boolean canAccessCvScore(User currentUser, Long targetUserId, Long jobOfferId) {
-        switch (currentUser.getRole()) {
-            case ADMIN:
-                return true;
-
-            case HR_MANAGER:
-                HRManager hrManager = (HRManager) currentUser;
-                return isJobFromHRManagerCompany(jobOfferId, hrManager.getCompany().getId()) &&
-                        isUserFromHRManagerCompany(targetUserId, hrManager.getCompany().getId());
-
-            case USER:
-                return currentUser.getId().equals(targetUserId);
-
-            default:
-                return false;
-        }
-    }
-
-    private boolean isJobFromHRManagerCompany(Long jobOfferId, Long companyId) {
-        return jobOfferRepository.existsByIdAndCompanyId(jobOfferId, companyId);
-    }
-
-    private boolean isUserFromHRManagerCompany(Long userId, Long companyId) {
-        return cvScoresRepository.existsUserInCompany(userId, companyId);
-    }
-
-    private User getCurrentUser(String userEmail) {
-        return userDao.findByEmail(userEmail)
-                .orElseThrow(() -> new UnauthorizedAccessException("User not found: " + userEmail));
     }
 
     public boolean isCvScored(Long userId, Long jobOfferId) {
@@ -412,6 +479,40 @@ public class CvScoresService {
         return new CvComparisonResponse(jobOfferId, comparisonItems, winner);
     }
 
+    // === MÉTHODES UTILITAIRES PRIVÉES ===
+
+    private boolean canAccessCvScore(User currentUser, Long targetUserId, Long jobOfferId) {
+        switch (currentUser.getRole()) {
+            case ADMIN:
+                return true;
+
+            case HR_MANAGER:
+                HRManager hrManager = (HRManager) currentUser;
+                return isJobFromHRManagerCompany(jobOfferId, hrManager.getCompany().getId()) &&
+                        isUserFromHRManagerCompany(targetUserId, hrManager.getCompany().getId());
+
+            case USER:
+                return currentUser.getId().equals(targetUserId);
+
+            default:
+                return false;
+        }
+    }
+
+    private boolean isJobFromHRManagerCompany(Long jobOfferId, Long companyId) {
+        return jobOfferRepository.existsByIdAndCompanyId(jobOfferId, companyId);
+    }
+
+    private boolean isUserFromHRManagerCompany(Long userId, Long companyId) {
+        return cvScoresRepository.existsUserInCompany(userId, companyId);
+    }
+
+    private User getCurrentUser(String userEmail) {
+        return userDao.findByEmail(userEmail)
+                .orElseThrow(() -> new UnauthorizedAccessException("User not found: " + userEmail));
+    }
+
+    // === CLASSES INTERNES CONSERVÉES POUR COMPATIBILITÉ ===
 
     public static class CvComparisonResponse {
         private final Long jobOfferId;
