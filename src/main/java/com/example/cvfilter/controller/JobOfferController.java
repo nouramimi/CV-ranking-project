@@ -53,29 +53,6 @@ public class JobOfferController {
 
 
 
-    /*@GetMapping("/getAll")
-    public ResponseEntity<List<JobOfferWithCompanyDTO>> getAll(
-            @RequestParam(required = false) Boolean active,
-            HttpServletRequest request) {
-
-        String email = extractEmailFromRequest(request);
-        List<JobOfferWithCompanyDTO> response = service.getAllJobOffersWithCompanyInfo(email, active);
-        return ResponseEntity.ok(response);
-    }*/
-
-    /*@GetMapping("/getAll")
-    public ResponseEntity<PaginatedResponse<JobOfferWithCompanyDTO>> getAll(
-            @RequestParam(required = false) Boolean active,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            HttpServletRequest request) {
-
-        String email = extractEmailFromRequest(request);
-        PaginatedResponse<JobOfferWithCompanyDTO> response =
-                service.getAllJobOffersWithCompanyInfo(email, active, page, size);
-        return ResponseEntity.ok(response);
-    }*/
-
 
     @GetMapping("/getById/{id}")
     public ResponseEntity<JobOfferDTO> getById(@PathVariable Long id, HttpServletRequest request) {

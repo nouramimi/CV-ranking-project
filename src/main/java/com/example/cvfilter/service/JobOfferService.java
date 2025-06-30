@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -52,6 +53,83 @@ public class JobOfferService implements JobOfferServiceInterface {
     }
 
     @Override
+    public PaginatedResponse<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(
+            String email, Boolean active, JobOffer.EmploymentType employmentType,
+            Double salary, String companyName, String jobTitle, int page, int size) {
+
+        try {
+            Long userCompanyId = authorizationService.getUserCompanyId(email);
+
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "postingDate"));
+
+            Page<JobOffer> jobOfferPage;
+            if (userCompanyId != null) {
+                jobOfferPage = jobOfferDao.findByCompanyIdAndFilters(
+                        userCompanyId,
+                        active,
+                        employmentType,
+                        salary,
+                        companyName,
+                        jobTitle,
+                        pageable);
+            } else {
+                jobOfferPage = jobOfferDao.findAllWithFilters(
+                        active,
+                        employmentType,
+                        salary,
+                        companyName,
+                        jobTitle,
+                        pageable);
+            }
+
+            List<JobOfferWithCompanyDTO> content = jobOfferPage.getContent().stream()
+                    .map(jobOffer -> {
+                        Company company = jobOffer.getCompanyId() != null ?
+                                companyDao.findById(jobOffer.getCompanyId()).orElse(null) :
+                                null;
+                        return new JobOfferWithCompanyDTO(jobOffer, company);
+                    })
+                    .collect(Collectors.toList());
+
+            return new PaginatedResponse<>(
+                    content,
+                    jobOfferPage.getNumber(),
+                    jobOfferPage.getSize(),
+                    (int) jobOfferPage.getTotalElements(),
+                    jobOfferPage.getTotalPages()
+            );
+        } catch (UnauthorizedAccessException e) {
+            logger.debug("User has no company association - returning all job offers");
+
+            Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "postingDate"));
+            Page<JobOffer> jobOfferPage = jobOfferDao.findAllWithFilters(
+                    active,
+                    employmentType,
+                    salary,
+                    companyName,
+                    jobTitle,
+                    pageable);
+
+            List<JobOfferWithCompanyDTO> content = jobOfferPage.getContent().stream()
+                    .map(jobOffer -> {
+                        Company company = jobOffer.getCompanyId() != null ?
+                                companyDao.findById(jobOffer.getCompanyId()).orElse(null) :
+                                null;
+                        return new JobOfferWithCompanyDTO(jobOffer, company);
+                    })
+                    .collect(Collectors.toList());
+
+            return new PaginatedResponse<>(
+                    content,
+                    jobOfferPage.getNumber(),
+                    jobOfferPage.getSize(),
+                    (int) jobOfferPage.getTotalElements(),
+                    jobOfferPage.getTotalPages()
+            );
+        }
+    }
+
+    /*@Override
     public PaginatedResponse<JobOfferWithCompanyDTO> getAllJobOffersWithCompanyInfo(
             String email, Boolean active, JobOffer.EmploymentType employmentType,
             Double salary, String companyName, String jobTitle, int page, int size) {
@@ -125,7 +203,7 @@ public class JobOfferService implements JobOfferServiceInterface {
                     jobOfferPage.getTotalPages()
             );
         }
-    }
+    }*/
 
 
     /*@Override
