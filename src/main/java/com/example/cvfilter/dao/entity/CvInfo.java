@@ -29,13 +29,13 @@ public class CvInfo {
     @Column(length = 2000)
     private String description;
 
-    @Column(length = 1000)
+    @Column(length = 5000)
     private String skills;
 
     @Column(length = 2000)
     private String experience;
 
-    @Column(length = 1000)
+    @Column(length = 5000)
     private String education;
 
     @Column(name = "extracted_at")
