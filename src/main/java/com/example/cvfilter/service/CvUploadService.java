@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -118,15 +119,13 @@ public class CvUploadService implements CvUploadServiceInterface {
             Path filePath = jobDir.resolve(uniqueFilename);
             Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
 
-            // ============ CORRECTION - Utilisez le service d'extraction ============
             CvInfo cvInfo = cvExtractionService.extractAndSaveCvInfo(
-                    filePath.toFile(),       // Le fichier sauvegardé
-                    user.getId(),            // L'ID de l'utilisateur
-                    jobOffer.getCompanyId(), // L'ID de la compagnie
-                    jobId                    // L'ID du job
+                    filePath.toFile(),
+                    user.getId(),
+                    jobOffer.getCompanyId(),
+                    jobId
             );
 
-            // Mettre à jour le chemin du fichier
             cvInfo.setCvPath(filePath.toString());
 
             // S'assurer que les informations utilisateur sont définies
@@ -137,9 +136,7 @@ public class CvUploadService implements CvUploadServiceInterface {
                 cvInfo.setEmail(user.getEmail());
             }
 
-            // Sauvegarder le CvInfo mis à jour
             cvInfo = cvInfoDao.save(cvInfo);
-            // =======================================================================
 
             logCvUpload(user.getId(), filePath.toString());
 
@@ -163,10 +160,10 @@ public class CvUploadService implements CvUploadServiceInterface {
             throw new JobOfferNotFoundException("Job offer not found with ID: " + jobOfferId);
         }
 
-        Pageable pageable = PageRequest.of(page, size);
-        Page<CvInfo> cvInfoPage = cvInfoDao.findByJobOfferIdWithAllFields(jobOfferId, pageable);
+        // Récupérer TOUS les candidats pour pouvoir trier correctement
+        List<CvInfo> allCvInfos = cvInfoDao.findByJobOfferId(jobOfferId);
 
-        List<CvInfoDTO> dtos = cvInfoPage.getContent().stream()
+        List<CvInfoDTO> allDtos = allCvInfos.stream()
                 .map(cvInfo -> {
                     Optional<CvScores> cvScores = cvScoresRepository
                             .findByUserIdAndJobOfferId(cvInfo.getUserId(), jobOfferId);
@@ -177,12 +174,30 @@ public class CvUploadService implements CvUploadServiceInterface {
                         return new CvInfoDTO(cvInfo);
                     }
                 })
+                // Trier par finalScore en ordre décroissant
+                .sorted((dto1, dto2) -> {
+                    Double score1 = dto1.getCvScores() != null ?
+                            dto1.getCvScores().getFinalScore().doubleValue() : 0.0;
+                    Double score2 = dto2.getCvScores() != null ?
+                            dto2.getCvScores().getFinalScore().doubleValue() : 0.0;
+                    return Double.compare(score2, score1); // Ordre décroissant
+                })
                 .collect(Collectors.toList());
 
-        return new PageImpl<>(dtos, pageable, cvInfoPage.getTotalElements());
+        // Appliquer la pagination manuellement après le tri
+        int totalElements = allDtos.size();
+        int start = page * size;
+        int end = Math.min(start + size, totalElements);
+
+        List<CvInfoDTO> pageContent = start < totalElements ?
+                allDtos.subList(start, end) :
+                new ArrayList<>();
+
+        Pageable pageable = PageRequest.of(page, size);
+        return new PageImpl<>(pageContent, pageable, totalElements);
     }
 
-    // ... Tous vos autres méthodes restent identiques
+    // Tous vos autres méthodes restent identiques
     public List<CvInfo> getUniqueCandidatesForJobOffer(Long jobOfferId) {
         if (!jobOfferDao.existsById(jobOfferId)) {
             throw new JobOfferNotFoundException("Job offer not found with ID: " + jobOfferId);
@@ -315,7 +330,6 @@ public class CvUploadService implements CvUploadServiceInterface {
 
         return new PageImpl<>(content, pageable, jobOfferIdsPage.getTotalElements());
     }
-
 
     public Page<JobOfferWithScoreDTO> getJobOffersWithScoresForUser(Long userId, int page, int size) {
         if (!userDao.existsById(userId)) {
